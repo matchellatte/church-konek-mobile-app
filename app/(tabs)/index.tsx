@@ -1,70 +1,265 @@
-import { Image, StyleSheet, Platform } from 'react-native';
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TextInput,
+  ScrollView,
+  Image,
+  TouchableOpacity,
+  SafeAreaView,
+  Dimensions,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 
-import { HelloWave } from '@/components/HelloWave';
-import ParallaxScrollView from '@/components/ParallaxScrollView';
-import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
+const { width } = Dimensions.get('window');
 
-export default function HomeScreen() {
+const HomePage = () => {
+  const router = useRouter(); // Use Expo Router
+  const [userName] = useState('Grechelle Ann');
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const handleNavigate = (screen: '/' | '/appointment' | '/calendar' | '/profile') => {
+    router.push(screen); // Use router.push for navigation
+  };
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        <View style={styles.navbar}>
+          <Text style={styles.greeting}>Hi {userName}!</Text>
+          <Ionicons name="notifications-outline" size={28} color="#333333" />
+        </View>
+
+        <Text style={styles.tagline}>Bringing the Church closer to you!</Text>
+
+        <TextInput
+          style={styles.searchBar}
+          placeholder="Search for an appointment..."
+          value={searchQuery}
+          onChangeText={setSearchQuery}
         />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({ ios: 'cmd + d', android: 'cmd + m' })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-        <ThemedText>
-          Tap the Explore tab to learn more about what's included in this starter app.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          When you're ready, run{' '}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+
+        <Image source={require('../../assets/images/image1.png')} style={styles.bannerImage} />
+
+        {/* Services Section */}
+        <Text style={styles.sectionTitle}>Our Services</Text>
+        <View style={styles.servicesContainer}>
+          {services.map((service, index) => (
+            <TouchableOpacity
+              key={index}
+              style={styles.serviceTile}
+              onPress={() => handleNavigate(service.screen)}
+            >
+              <Ionicons name={service.icon as keyof typeof Ionicons.glyphMap} size={32} color="#333333" />
+              <View style={styles.serviceTextContainer}>
+                <Text
+                  style={[
+                    styles.serviceTitle,
+                    service.title === 'Book Appointment' && styles.boldText,
+                  ]}
+                >
+                  {service.title}
+                </Text>
+                <Text style={styles.serviceDescription}>{service.description}</Text>
+              </View>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* Church Events Section */}
+        <View style={styles.container}>
+          <View style={styles.sectionRow}>
+            <Text style={styles.sectionTitle}>Church Events</Text>
+            <TouchableOpacity onPress={() => handleNavigate('/calendar')}>
+              <Text style={styles.viewAllText}>View All</Text>
+            </TouchableOpacity>
+          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            {churchEvents.map((event, index) => (
+              <View key={index} style={styles.eventCard}>
+                <Text style={styles.eventDate}>{event.date}</Text>
+                <Text style={styles.eventTitle}>{event.title}</Text>
+              </View>
+            ))}
+          </ScrollView>
+        </View>
+
+        {/* Mass Schedule Section */}
+        <View style={styles.container}>
+          <Text style={styles.subSectionTitle}>Mass Schedule</Text>
+          {massSchedule.map((item, index) => (
+            <View key={index} style={styles.scheduleRow}>
+              <Text style={styles.scheduleDay}>{item.day}</Text>
+              <Text style={styles.scheduleTime}>{item.time}</Text>
+            </View>
+          ))}
+        </View>
+
+        {/* About Church Section */}
+        <View style={styles.container}>
+          <Text style={styles.subSectionTitle}>About Church</Text>
+          <Text style={styles.churchInfo}>
+            <Text style={styles.boldText}>Blessed Virgin Mary, Queen of The World Parish</Text>
+            {'\n'}
+            Established in 1971, the parish was carved from the parish of St. John the Baptist. The
+            pioneering parish priest was Fr. Armando Perez, who built the church and rectory.
+          </Text>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
-}
+};
+
+const services: { title: string; description: string; icon: string; screen: '/' | '/appointment' | '/calendar' | '/profile' }[] = [
+  { title: 'Book Appointment', description: 'Schedule a meeting.', icon: 'calendar-outline', screen: '/appointment' },
+  { title: 'Request Certificate', description: 'Get certificates.', icon: 'document-text-outline', screen: '/' },
+  { title: 'Prayer Intention', description: 'Let us pray.', icon: 'heart-outline', screen: '/calendar' },
+  { title: 'Donate to Church', description: 'Support us.', icon: 'cash-outline', screen: '/profile' },
+];
+
+const churchEvents = [
+  { date: 'Oct 15', title: 'Baptism Ceremony' },
+  { date: 'Oct 17', title: 'Wedding Ceremony' },
+  { date: 'Oct 20', title: 'Special Mass' },
+];
+
+const massSchedule = [
+  { day: 'Monday', time: '6:30 AM, 12:00 PM' },
+  { day: 'Tuesday', time: '6:30 AM, 12:00 PM' },
+  { day: 'Wednesday', time: '6:30 AM, 12:00 PM' },
+  { day: 'Thursday', time: '6:30 AM, 12:00 PM' },
+  { day: 'Friday', time: '6:30 AM, 12:00 PM' },
+  { day: 'Saturday', time: '8:00 AM' },
+  { day: 'Sunday', time: '8:00 AM, 10:30 AM, 5:00 PM' },
+];
 
 const styles = StyleSheet.create({
-  titleContainer: {
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#F8F8F8',
+  },
+  scrollContent: {
+    padding: 15,
+    paddingBottom: 100,
+  },
+  navbar: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    gap: 8,
+    marginBottom: 10,
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+  greeting: {
+    fontSize: 20,
+    fontWeight: 'bold',
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+  tagline: {
+    fontSize: 16,
+    color: '#666',
+    marginBottom: 20,
+  },
+  searchBar: {
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    paddingHorizontal: 15,
+    paddingVertical: 15,
+    marginBottom: 20,
+  },
+  bannerImage: {
+    width: '100%',
+    height: 200,
+    borderRadius: 8,
+    marginBottom: 20,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginVertical: 10,
+    color: '#333333',
+  },
+  servicesContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  serviceTile: {
+    width: '48%',
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    padding: 15,
+    marginBottom: 15,
+  },
+  serviceTextContainer: {
+    marginTop: 10,
+  },
+  serviceTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333333',
+  },
+  serviceDescription: {
+    fontSize: 14,
+    color: '#666',
+  },
+  container: {
+    backgroundColor: '#fff',
+    borderRadius: 15,
+    padding: 15,
+    marginBottom: 15,
+  },
+  sectionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  eventCard: {
+    backgroundColor: '#FFF5EB',
+    padding: 15,
+    borderRadius: 15,
+    marginRight: 10,
+    width: 150,
+  },
+  eventDate: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#C69C6D',
+  },
+  eventTitle: {
+    fontSize: 14,
+    color: '#333',
+  },
+  scheduleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 5,
+  },
+  scheduleDay: {
+    fontSize: 14,
+    color: '#333',
+  },
+  scheduleTime: {
+    fontSize: 14,
+    color: '#666',
+  },
+  subSectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  churchInfo: {
+    fontSize: 14,
+    color: '#545454',
+  },
+  boldText: {
+    fontWeight: 'bold',
+  },
+  viewAllText: {
+    fontSize: 14,
+    color: '#6A5D43',
+    fontWeight: 'bold',
   },
 });
+
+export default HomePage;
