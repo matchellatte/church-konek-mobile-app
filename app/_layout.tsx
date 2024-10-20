@@ -1,34 +1,56 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import { ThemeProvider, DefaultTheme } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import 'react-native-reanimated';
 
-import { useColorScheme } from '@/hooks/useColorScheme';
+import { supabase } from '../backend/lib/supabase';
 
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
   const [loaded] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
   });
+  const [isReady, setIsReady] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
+    // Check if fonts are loaded before hiding splash screen
     if (loaded) {
       SplashScreen.hideAsync();
+      setIsReady(true);
     }
   }, [loaded]);
 
-  if (!loaded) {
+  useEffect(() => {
+    if (isReady) {
+      // Check authentication status only after app is mounted
+      const checkAuth = async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session && session.user) {
+          // User is logged in, redirect to home
+          router.replace('/(tabs)');
+        } else {
+          // User is not logged in, redirect to login
+          router.replace('/auth/login');
+        }
+      };
+      checkAuth();
+    }
+  }, [isReady]);
+
+  if (!loaded || !isReady) {
     return null;
   }
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+    <ThemeProvider value={DefaultTheme}>
       <Stack>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="auth/login" options={{ headerShown: false }} />
+        <Stack.Screen name="auth/signup" options={{ headerShown: false }} />
         <Stack.Screen name="+not-found" />
       </Stack>
     </ThemeProvider>
