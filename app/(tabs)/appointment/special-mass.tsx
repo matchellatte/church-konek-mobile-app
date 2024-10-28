@@ -19,7 +19,7 @@ const SpecialMass: React.FC<SpecialMassProps> = () => {
 
   // Navigate to the dynamic appointment form with the "Special Mass" service
   const handleAppointmentNavigation = () => {
-    router.push('/forms/SpecialMassForm'); // Ensure this path matches your directory structure
+    router.push('/forms/special-mass-form'); // Ensure this path matches your directory structure
   };
 
   return (

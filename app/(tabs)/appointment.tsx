@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,8 +8,9 @@ import {
   TouchableOpacity,
   Alert,
 } from 'react-native';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router'; // Use Expo Router instead
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import { supabase } from '../../backend/lib/supabase'; // Adjust path as needed
 
 const services = [
   { label: 'Wedding', icon: 'heart-outline', screen: '/appointment/wedding' },
@@ -23,36 +24,81 @@ const services = [
   { label: 'Church Donation', icon: 'cash-outline', screen: '/appointment/church-donation' },
 ];
 
-const mockAppointments = [
-  { date: '2024-10-15', title: 'Wedding Appointment', status: 'Upcoming' },
-  { date: '2024-09-20', title: 'Funeral Mass', status: 'Past' },
-  { date: '2024-08-30', title: 'House Blessing', status: 'Cancelled' },
-];
-
 const Appointment = () => {
-  const router = useRouter(); // Use Expo Router
-  const [appointments, setAppointments] = useState(mockAppointments);
-  const [activeTab, setActiveTab] = useState('Upcoming');
+  const router = useRouter();
+  interface Appointment {
+    id: number;
+    title: string;
+    wedding_date: string;
+    status: string;
+    type: string;
+  }
+
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [userId, setUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    getCurrentUser();
+  }, []);
+
+  useEffect(() => {
+    if (userId) {
+      fetchAppointments();
+    }
+    
+    // Listen to real-time changes in the appointments table
+    const channel = supabase.channel('wedding_appointments')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'wedding_appointments' }, () => fetchAppointments())
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'wedding_appointments' }, () => fetchAppointments())
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [userId]);
+
+  const getCurrentUser = async () => {
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser();
+
+    if (error) {
+      Alert.alert('Error', 'Failed to retrieve user information');
+    } else if (user) {
+      setUserId(user.id);
+    }
+  };
+
+  const fetchAppointments = async () => {
+    if (!userId) return;
+    
+    const { data, error } = await supabase
+      .from('wedding_appointments')
+      .select('*')
+      .eq('user_id', userId) // Use user_id instead of id
+      .order('wedding_date', { ascending: false });
+
+    if (error) {
+      Alert.alert('Error fetching appointments', error.message);
+    } else {
+      const updatedData = data.map((appointment: any) => ({
+        ...appointment,
+        type: 'Wedding Appointment',
+      }));
+      setAppointments(updatedData);
+    }
+  };
 
   const handleNavigate = (screen: string) => {
-    router.push(screen as any); // Use router.push for navigation
+    router.push(screen as any);
   };
 
-  const handleCancelAppointment = (index: number) => {
-    Alert.alert('Cancel Appointment', 'Are you sure you want to cancel?', [
-      { text: 'No' },
-      { text: 'Yes', onPress: () => cancelAppointment(index) },
-    ]);
-  };
-
-  const cancelAppointment = (index: number) => {
-    const updatedAppointments = [...appointments];
-    updatedAppointments.splice(index, 1);
-    setAppointments(updatedAppointments);
-  };
-
-  const handleNotificationToggle = (appointment: { title: string }) => {
-    Alert.alert('Notification', `Notifications turned on for ${appointment.title}`);
+  const handleAppointmentClick = (appointmentId: number) => {
+    router.push({
+      pathname: '/appointment/wedding-appointment-details',
+      params: { appointmentId: appointmentId.toString() },
+    });
   };
 
   return (
@@ -62,7 +108,7 @@ const Appointment = () => {
         <View style={styles.headerContainer}>
           <Text style={styles.title}>Book an Appointment</Text>
           <Text style={styles.description}>
-            Select a service to schedule or view your upcoming and past appointments.
+            Select a service to schedule or view your appointments.
           </Text>
         </View>
 
@@ -85,39 +131,27 @@ const Appointment = () => {
 
         {/* Appointment Details Section */}
         <View style={styles.appointmentsSection}>
-          <View style={styles.tabs}>
-            {['Upcoming', 'Past', 'Cancelled'].map((tab) => (
-              <TouchableOpacity
-                key={tab}
-                onPress={() => setActiveTab(tab)}
-                style={[
-                  styles.tab,
-                  activeTab === tab && styles.activeTab,
-                ]}
-              >
-                <Text style={styles.tabText}>{tab}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+          <Text style={styles.sectionTitle}>Appointments</Text>
 
-          {appointments
-            .filter((appt) => appt.status === activeTab)
-            .map((appointment, index) => (
-              <View key={index} style={styles.appointmentCard}>
-                <View>
-                  <Text style={styles.appointmentTitle}>{appointment.title}</Text>
-                  <Text style={styles.appointmentDate}>{appointment.date}</Text>
+          {appointments.length === 0 ? (
+            <Text style={styles.noAppointmentsText}>No appointments yet</Text>
+          ) : (
+            appointments.map((appointment, index) => (
+              <TouchableOpacity
+                key={index}
+                style={styles.appointmentCard}
+                onPress={() => handleAppointmentClick(appointment.id)}
+              >
+                <View style={styles.appointmentContent}>
+                  <View style={styles.appointmentInfo}>
+                    <Text style={styles.appointmentType}>{appointment.type}</Text>
+                    <Text style={styles.appointmentDate}>{appointment.wedding_date}</Text>
+                  </View>
+                  <Text style={styles.appointmentStatus}>{appointment.status}</Text>
                 </View>
-                <View style={styles.iconContainer}>
-                  <TouchableOpacity onPress={() => handleNotificationToggle(appointment)}>
-                    <Ionicons name="notifications-outline" size={22} color="#333" />
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={() => handleCancelAppointment(index)}>
-                    <MaterialCommunityIcons name="trash-can-outline" size={22} color="#333" />
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ))}
+              </TouchableOpacity>
+            ))
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -176,49 +210,46 @@ const styles = StyleSheet.create({
   appointmentsSection: {
     marginTop: 10,
   },
-  tabs: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 15,
-    backgroundColor: '#f7f7f7',
-    paddingVertical: 10,
-    borderRadius: 20,
-  },
-  tab: {
-    padding: 15,
-    paddingHorizontal: 30,
-    borderRadius: 15,
-  },
-  activeTab: {
-    backgroundColor: '#D3F8DF',
-  },
-  tabText: {
-    fontSize: 14,
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
     color: '#333',
+    marginBottom: 10,
+  },
+  noAppointmentsText: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    marginTop: 20,
   },
   appointmentCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
     backgroundColor: '#FFF',
     padding: 15,
     borderRadius: 10,
     marginBottom: 10,
   },
-  appointmentTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
+  appointmentContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  appointmentInfo: {
+    flex: 1,
+  },
+  appointmentType: {
+    fontSize: 14,
+    color: '#666',
+    fontWeight: 'bold',
+    marginBottom: 5,
   },
   appointmentDate: {
     fontSize: 14,
     color: '#666',
-    marginTop: 5,
   },
-  iconContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
+  appointmentStatus: {
+    fontSize: 14,
+    color: '#333',
+    fontWeight: 'bold',
   },
 });
 

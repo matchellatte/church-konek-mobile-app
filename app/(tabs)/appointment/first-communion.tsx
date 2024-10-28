@@ -18,7 +18,7 @@ const FirstCommunion: React.FC<FirstCommunionProps> = () => {
   const router = useRouter();
 
   const handleAppointmentNavigation = () => {
-    router.push('/forms/FirstCommunion'); // Update the path based on your structure
+    router.push('/forms/first-communion-form'); // Update the path based on your structure
   };
 
   return (

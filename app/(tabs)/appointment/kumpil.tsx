@@ -19,7 +19,7 @@ const Kumpil: React.FC<KumpilProps> = () => {
 
   // Navigate to the Kumpil form using Expo Router
   const handleAppointmentNavigation = () => {
-    router.push('/forms/KumpilForm'); // Update this path based on your file structure
+    router.push('/forms/kumpil-form'); // Update this path based on your file structure
   };
 
   return (

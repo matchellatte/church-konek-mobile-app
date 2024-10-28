@@ -11,12 +11,12 @@ import {
 } from 'react-native';
 import { Calendar } from 'react-native-calendars'; 
 import { useRouter } from 'expo-router';
-import { supabase } from '../../backend/lib/supabase'; 
+import { supabase } from '../../backend/lib/supabase';
 
-const WeddingForm: React.FC = () => {
+const BaptismForm: React.FC = () => {
   const router = useRouter();
-  const [brideName, setBrideName] = useState('');
-  const [groomName, setGroomName] = useState('');
+  const [childName, setChildName] = useState('');
+  const [parentName, setParentName] = useState('');
   const [contactNumber, setContactNumber] = useState('');
   const [selectedDate, setSelectedDate] = useState('');
   const [availableDates, setAvailableDates] = useState<string[]>([]);
@@ -39,17 +39,17 @@ const WeddingForm: React.FC = () => {
   };
 
   const handleAppointmentBooking = async () => {
-    if (!brideName || !groomName || !contactNumber || !selectedDate) {
-      Alert.alert('Please fill out all fields and choose a wedding date.');
+    if (!childName || !parentName || !contactNumber || !selectedDate) {
+      Alert.alert('Please fill out all fields and choose a baptism date.');
       return;
     }
 
-    const { data, error } = await supabase.from('wedding_appointments').insert([
+    const { data, error } = await supabase.from('baptism_appointments').insert([
       {
-        bride_name: brideName,
-        groom_name: groomName,
+        child_name: childName,
+        parent_name: parentName,
         contact_number: contactNumber,
-        wedding_date: selectedDate,
+        baptism_date: selectedDate,
         status: 'Pending Approval',
       },
     ]);
@@ -65,24 +65,24 @@ const WeddingForm: React.FC = () => {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.title}>Wedding Form</Text>
+        <Text style={styles.title}>Baptism Form</Text>
 
         {/* Personal Details Section */}
         <View style={styles.section}>
-          <Text style={styles.label}>Bride's Full Name:</Text>
+          <Text style={styles.label}>Name of Child:</Text>
           <TextInput
             style={styles.input}
-            value={brideName}
-            onChangeText={setBrideName}
-            placeholder="Enter Bride's Name"
+            value={childName}
+            onChangeText={setChildName}
+            placeholder="Enter Child's Name"
           />
 
-          <Text style={styles.label}>Groom's Full Name:</Text>
+          <Text style={styles.label}>Parent/Guardian's Name:</Text>
           <TextInput
             style={styles.input}
-            value={groomName}
-            onChangeText={setGroomName}
-            placeholder="Enter Groom's Name"
+            value={parentName}
+            onChangeText={setParentName}
+            placeholder="Enter Parent/Guardian's Name"
           />
 
           <Text style={styles.label}>Contact Number:</Text>
@@ -95,9 +95,9 @@ const WeddingForm: React.FC = () => {
           />
         </View>
 
-        {/* Wedding Date Section */}
+        {/* Baptism Date Section */}
         <View style={styles.section}>
-          <Text style={styles.label}>Choose a Wedding Date:</Text>
+          <Text style={styles.label}>Choose a Baptism Date:</Text>
           <Calendar
             onDayPress={(day: { dateString: string }) => setSelectedDate(day.dateString)}
             markedDates={{
@@ -168,4 +168,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default WeddingForm;
+export default BaptismForm;

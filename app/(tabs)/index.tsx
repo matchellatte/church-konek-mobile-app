@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { supabase } from '../../backend/lib/supabase'; // Import Supabase client
 import { useRouter } from 'expo-router';
 
 const { width } = Dimensions.get('window');
@@ -19,6 +20,53 @@ const HomePage = () => {
   const router = useRouter(); // Use Expo Router
   const [userName] = useState('Grechelle Ann');
   const [searchQuery, setSearchQuery] = useState('');
+  interface MassSchedule {
+    id: number;
+    day: string;
+    time: string;
+  }
+  
+  const [massSchedule, setMassSchedule] = useState<MassSchedule[]>([]);
+  interface ChurchEvent {
+    id: number;
+    title: string;
+    date: string;
+  }
+
+  const [churchEvents, setChurchEvents] = useState<ChurchEvent[]>([]);
+
+  // Fetch mass schedule from Supabase
+  const fetchMassSchedule = async () => {
+    const { data, error } = await supabase
+      .from('mass_schedule')
+      .select('*')
+      .order('id', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching mass schedule:', error);
+    } else {
+      setMassSchedule(data);
+    }
+  };
+
+  // Fetch church events from Supabase
+  const fetchChurchEvents = async () => {
+    const { data, error } = await supabase
+      .from('church_events')
+      .select('*')
+      .order('date', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching church events:', error);
+    } else {
+      setChurchEvents(data);
+    }
+  };
+
+  useEffect(() => {
+    fetchMassSchedule();
+    fetchChurchEvents();
+  }, []);
 
   const handleNavigate = (screen: '/' | '/appointment' | '/calendar' | '/profile') => {
     router.push(screen); // Use router.push for navigation
@@ -43,31 +91,6 @@ const HomePage = () => {
 
         <Image source={require('../../assets/images/image1.png')} style={styles.bannerImage} />
 
-        {/* Services Section */}
-        <Text style={styles.sectionTitle}>Our Services</Text>
-        <View style={styles.servicesContainer}>
-          {services.map((service, index) => (
-            <TouchableOpacity
-              key={index}
-              style={styles.serviceTile}
-              onPress={() => handleNavigate(service.screen)}
-            >
-              <Ionicons name={service.icon as keyof typeof Ionicons.glyphMap} size={32} color="#333333" />
-              <View style={styles.serviceTextContainer}>
-                <Text
-                  style={[
-                    styles.serviceTitle,
-                    service.title === 'Book Appointment' && styles.boldText,
-                  ]}
-                >
-                  {service.title}
-                </Text>
-                <Text style={styles.serviceDescription}>{service.description}</Text>
-              </View>
-            </TouchableOpacity>
-          ))}
-        </View>
-
         {/* Church Events Section */}
         <View style={styles.container}>
           <View style={styles.sectionRow}>
@@ -79,7 +102,7 @@ const HomePage = () => {
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             {churchEvents.map((event, index) => (
               <View key={index} style={styles.eventCard}>
-                <Text style={styles.eventDate}>{event.date}</Text>
+                <Text style={styles.eventDate}>{new Date(event.date).toLocaleDateString()}</Text>
                 <Text style={styles.eventTitle}>{event.title}</Text>
               </View>
             ))}
@@ -111,29 +134,6 @@ const HomePage = () => {
     </SafeAreaView>
   );
 };
-
-const services: { title: string; description: string; icon: string; screen: '/' | '/appointment' | '/calendar' | '/profile' }[] = [
-  { title: 'Book Appointment', description: 'Schedule a meeting.', icon: 'calendar-outline', screen: '/appointment' },
-  { title: 'Request Certificate', description: 'Get certificates.', icon: 'document-text-outline', screen: '/' },
-  { title: 'Prayer Intention', description: 'Let us pray.', icon: 'heart-outline', screen: '/calendar' },
-  { title: 'Donate to Church', description: 'Support us.', icon: 'cash-outline', screen: '/profile' },
-];
-
-const churchEvents = [
-  { date: 'Oct 15', title: 'Baptism Ceremony' },
-  { date: 'Oct 17', title: 'Wedding Ceremony' },
-  { date: 'Oct 20', title: 'Special Mass' },
-];
-
-const massSchedule = [
-  { day: 'Monday', time: '6:30 AM, 12:00 PM' },
-  { day: 'Tuesday', time: '6:30 AM, 12:00 PM' },
-  { day: 'Wednesday', time: '6:30 AM, 12:00 PM' },
-  { day: 'Thursday', time: '6:30 AM, 12:00 PM' },
-  { day: 'Friday', time: '6:30 AM, 12:00 PM' },
-  { day: 'Saturday', time: '8:00 AM' },
-  { day: 'Sunday', time: '8:00 AM, 10:30 AM, 5:00 PM' },
-];
 
 const styles = StyleSheet.create({
   safeArea: {

@@ -16,24 +16,7 @@ const Baptism = () => {
   const router = useRouter();
 
   const handleAppointmentNavigation = () => {
-    router.push({
-      pathname: '/appointment',
-      params: {
-        service: 'Baptism',
-        requirements: [
-          'Birth certificate of Mother',
-          'Birth certificate of Father',
-          'Birth certificate of Child',
-          'Ninong/Ninang Confirmation',
-          'Marriage Certificate (if married)',
-        ],
-        items: [
-          'Candle (provided by parents)',
-          'Baptismal cloth (provided by church)',
-          'Video of tree planting (required by church)',
-        ],
-      }
-    });
+    router.push('/forms/baptism-form' as any);
   };
 
   return (

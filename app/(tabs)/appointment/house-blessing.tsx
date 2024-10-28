@@ -19,7 +19,7 @@ const HouseBlessing: React.FC<HouseBlessingProps> = () => {
 
   // Navigate to the HouseBlessingForm
   const handleAppointmentNavigation = () => {
-    router.push('/forms/HouseBlessing'); // Adjust this path if necessary
+    router.push('/forms/house-blessing-form'); // Adjust this path if necessary
   };
 
   return (

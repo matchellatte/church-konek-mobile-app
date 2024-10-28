@@ -5,37 +5,61 @@ import {
   StyleSheet, 
   SafeAreaView, 
   TouchableOpacity, 
-  ScrollView 
+  ScrollView, 
+  Alert 
 } from 'react-native';
 import { Calendar } from 'react-native-calendars';
 import { Ionicons } from '@expo/vector-icons';
+import { supabase } from '../../backend/lib/supabase';
 
-type ChurchEventsType = {
-  [key: string]: { title: string }[];
-};
-
-const churchEvents: ChurchEventsType = {
-  '2024-10-10': [{ title: 'Baptism at 10:00 AM' }],
-  '2024-10-12': [
-    { title: 'Wedding at 2:00 PM' },
-    { title: 'Special Mass at 4:00 PM' },
-  ],
-  '2024-11-15': [{ title: 'House Blessing at 11:00 AM' }],
-};
+interface ChurchEvent {
+  id: number;
+  title: string;
+  date: string;
+}
 
 const CalendarScreen = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState('');
-  const [markedDates, setMarkedDates] = useState({});
+  const [markedDates, setMarkedDates] = useState<{ [key: string]: { marked: boolean; dotColor: string } }>({});
+  const [churchEvents, setChurchEvents] = useState<{ [key: string]: ChurchEvent[] }>({});
 
   const formatDate = (date: Date) => date.toISOString().split('T')[0];
 
-  useEffect(() => {
+  // Fetch church events from Supabase
+  const fetchChurchEvents = async () => {
+    const { data, error } = await supabase
+      .from('church_events')
+      .select('*')
+      .order('date', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching church events:', error);
+      Alert.alert('Error', 'Failed to fetch church events');
+      return;
+    }
+
+    // Group events by date
+    const eventsByDate: { [key: string]: ChurchEvent[] } = {};
+    data.forEach((event: ChurchEvent) => {
+      if (!eventsByDate[event.date]) {
+        eventsByDate[event.date] = [];
+      }
+      eventsByDate[event.date].push(event);
+    });
+
+    // Mark the dates with events
     const marked: { [key: string]: { marked: boolean; dotColor: string } } = {};
-    Object.keys(churchEvents).forEach((date) => {
+    Object.keys(eventsByDate).forEach((date) => {
       marked[date] = { marked: true, dotColor: '#C69C6D' };
     });
+
+    setChurchEvents(eventsByDate);
     setMarkedDates(marked);
+  };
+
+  useEffect(() => {
+    fetchChurchEvents();
   }, []);
 
   const handleDayPress = (day: { dateString: string }) => {

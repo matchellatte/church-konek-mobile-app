@@ -19,7 +19,7 @@ const Wedding: React.FC<WeddingProps> = () => {
 
   // Navigate to the WeddingForm with service configuration
   const handleAppointmentNavigation = () => {
-    router.push('/forms/WeddingForm'); // Adjusted to directly match the route
+    router.push('/forms/wedding-form'); // Adjusted to directly match the route
   };
 
   return (
