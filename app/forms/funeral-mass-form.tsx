@@ -9,15 +9,15 @@ import {
   ScrollView, 
   Alert 
 } from 'react-native';
-import { Calendar } from 'react-native-calendars';
+import { Calendar } from 'react-native-calendars'; 
 import { useRouter } from 'expo-router';
 import { supabase } from '../../backend/lib/supabase';
 
-const SpecialMassForm: React.FC = () => {
+const FuneralMassForm: React.FC = () => {
   const router = useRouter();
-  const [fullName, setFullName] = useState('');
+  const [deceasedName, setDeceasedName] = useState('');
+  const [guardianName, setGuardianName] = useState('');
   const [contactNumber, setContactNumber] = useState('');
-  const [massType, setMassType] = useState('');
   const [selectedDate, setSelectedDate] = useState('');
   const [availableDates, setAvailableDates] = useState<string[]>([]);
 
@@ -29,7 +29,7 @@ const SpecialMassForm: React.FC = () => {
     const { data, error } = await supabase
       .from('appointments')
       .select('appointment_date')
-      .eq('status', 'Available');
+      .eq('status', 'available');
       
     if (error) {
       console.log('Error fetching available dates:', error);
@@ -40,46 +40,28 @@ const SpecialMassForm: React.FC = () => {
   };
 
   const handleAppointmentBooking = async () => {
-    if (!fullName || !contactNumber || !massType || !selectedDate) {
-      Alert.alert('Validation Error', 'Please fill out all fields and choose a date.');
+    if (!deceasedName || !guardianName || !contactNumber || !selectedDate) {
+      Alert.alert('Please fill out all fields and choose a funeral mass date.');
       return;
     }
 
     try {
-      // Retrieve the current user's ID
-      const { data: userResponse, error: userError } = await supabase.auth.getUser();
-      const userId = userResponse?.user?.id;
-
-      if (userError || !userId) {
-        console.error('Error fetching user ID:', userError);
-        Alert.alert('Error', 'Failed to retrieve user information. Please try again.');
+      const userResponse = await supabase.auth.getUser();
+      const userId = userResponse.data?.user?.id;
+      if (!userId) {
+        Alert.alert('Error', 'User is not authenticated.');
         return;
       }
 
-      // Fetch the service ID for "Special Mass"
-      const { data: serviceData, error: serviceError } = await supabase
-        .from('services')
-        .select('service_id')
-        .eq('name', 'Special Mass')
-        .single();
-
-      if (serviceError || !serviceData) {
-        console.error('Error fetching service ID:', serviceError);
-        Alert.alert('Error', 'Failed to fetch the service ID. Please try again.');
-        return;
-      }
-
-      const serviceId = serviceData.service_id;
-
-      // Step 1: Create an Appointment with user_id
+      // Step 1: Create an Appointment
       const { data: appointmentData, error: appointmentError } = await supabase
         .from('appointments')
         .insert([
           {
             user_id: userId,
-            service_id: serviceId,
+            service_id: (await supabase.from('services').select('service_id').eq('name', 'Funeral Mass').single()).data?.service_id,
             appointment_date: selectedDate,
-            status: 'pending', // Initial status
+            status: 'pending'
           }
         ])
         .select('appointment_id')
@@ -93,27 +75,26 @@ const SpecialMassForm: React.FC = () => {
 
       const appointmentId = appointmentData.appointment_id;
 
-      // Step 2: Insert into specialmassforms table with the generated appointment_id
-      const { error: formError } = await supabase.from('specialmassforms').insert([
+      // Step 2: Insert into FuneralMassForms table with the generated appointment_id
+      const { error: formError } = await supabase.from('funeralmassforms').insert([
         {
-          full_name: fullName,
+          deceased_name: deceasedName,
+          guardian_name: guardianName,
           contact_number: contactNumber,
-          mass_type: massType,
-          special_mass_date: selectedDate,
-          appointment_id: appointmentId, // Link to the appointment
-          status: 'pending', // Initial status
+          funeral_mass_date: selectedDate,
+          appointment_id: appointmentId,
         },
       ]);
 
       if (formError) {
         console.error('Form submission error:', formError);
-        Alert.alert('Booking Failed', 'An error occurred. Please try again.');
+        Alert.alert('Error', 'Failed to book funeral mass appointment. Please try again.');
       } else {
-        Alert.alert('Success', 'Special mass appointment booked successfully.');
+        Alert.alert('Success', 'Funeral mass appointment booked successfully.');
         router.back();
       }
     } catch (error) {
-      console.error('Unexpected error during booking:', error);
+      console.error('Unexpected error booking appointment:', error);
       Alert.alert('Error', 'An unexpected error occurred. Please try again.');
     }
   };
@@ -121,15 +102,24 @@ const SpecialMassForm: React.FC = () => {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.title}>Special Mass Form</Text>
+        <Text style={styles.title}>Funeral Mass Form</Text>
 
+        {/* Personal Details Section */}
         <View style={styles.section}>
-          <Text style={styles.label}>Full Name:</Text>
+          <Text style={styles.label}>Deceased's Name:</Text>
           <TextInput
             style={styles.input}
-            value={fullName}
-            onChangeText={setFullName}
-            placeholder="Enter your full name"
+            value={deceasedName}
+            onChangeText={setDeceasedName}
+            placeholder="Enter Deceased's Name"
+          />
+
+          <Text style={styles.label}>Guardian's Name:</Text>
+          <TextInput
+            style={styles.input}
+            value={guardianName}
+            onChangeText={setGuardianName}
+            placeholder="Enter Guardian's Name"
           />
 
           <Text style={styles.label}>Contact Number:</Text>
@@ -137,35 +127,29 @@ const SpecialMassForm: React.FC = () => {
             style={styles.input}
             value={contactNumber}
             onChangeText={setContactNumber}
-            placeholder="Enter contact number"
+            placeholder="Enter Contact Number"
             keyboardType="phone-pad"
-          />
-
-          <Text style={styles.label}>Mass Type:</Text>
-          <TextInput
-            style={styles.input}
-            value={massType}
-            onChangeText={setMassType}
-            placeholder="Enter type of mass (e.g., Healing, Thanksgiving)"
           />
         </View>
 
+        {/* Funeral Mass Date Section */}
         <View style={styles.section}>
-          <Text style={styles.label}>Choose a Date for Special Mass:</Text>
+          <Text style={styles.label}>Choose a Funeral Mass Date:</Text>
           <Calendar
             onDayPress={(day: { dateString: string }) => setSelectedDate(day.dateString)}
             markedDates={{
               [selectedDate]: { selected: true, selectedColor: '#C69C6D' },
               ...availableDates.reduce(
-                (acc, date) => ({ ...acc, [date]: { disabled: true, disableTouchEvent: true, dotColor: 'red' } }),
+                (acc, date) => ({ ...acc, [date]: { marked: true, dotColor: '#C69C6D' } }),
                 {}
               ),
             }}
           />
         </View>
 
+        {/* Book Appointment Button */}
         <TouchableOpacity style={styles.submitButton} onPress={handleAppointmentBooking}>
-          <Text style={styles.submitButtonText}>Book Special Mass</Text>
+          <Text style={styles.submitButtonText}>Book an Appointment</Text>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
@@ -221,4 +205,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default SpecialMassForm;
+export default FuneralMassForm;
