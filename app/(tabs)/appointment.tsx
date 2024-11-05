@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { supabase } from '../../backend/lib/supabase'; // Adjust path as needed
+import { supabase } from '../../backend/lib/supabase';
 
 const services = [
   { label: 'Wedding', icon: 'heart-outline', screen: '/appointment/wedding' },
@@ -26,15 +26,8 @@ const services = [
 
 const Appointment = () => {
   const router = useRouter();
-  interface Appointment {
-    id: number;
-    title: string;
-    wedding_date: string;
-    status: string;
-    type: string;
-  }
 
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [appointments, setAppointments] = useState<any[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -46,10 +39,10 @@ const Appointment = () => {
       fetchAppointments();
     }
     
-    // Listen to real-time changes in the appointments table
-    const channel = supabase.channel('wedding_appointments')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'wedding_appointments' }, () => fetchAppointments())
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'wedding_appointments' }, () => fetchAppointments())
+    const channel = supabase
+      .channel('appointments')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'weddingforms' }, fetchAppointments)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'weddingforms' }, fetchAppointments)
       .subscribe();
 
     return () => {
@@ -58,35 +51,34 @@ const Appointment = () => {
   }, [userId]);
 
   const getCurrentUser = async () => {
-    const {
-      data: { user },
-      error,
-    } = await supabase.auth.getUser();
+    const { data, error } = await supabase.auth.getUser();
 
     if (error) {
       Alert.alert('Error', 'Failed to retrieve user information');
-    } else if (user) {
-      setUserId(user.id);
+    } else if (data.user) {
+      setUserId(data.user.id);
     }
   };
 
   const fetchAppointments = async () => {
     if (!userId) return;
-    
+
     const { data, error } = await supabase
-      .from('wedding_appointments')
-      .select('*')
-      .eq('user_id', userId) // Use user_id instead of id
+      .from('weddingforms')
+      .select('*, appointments(status)')
+      .eq('appointments.user_id', userId)
       .order('wedding_date', { ascending: false });
 
     if (error) {
       Alert.alert('Error fetching appointments', error.message);
     } else {
-      const updatedData = data.map((appointment: any) => ({
-        ...appointment,
+      const formattedAppointments = data.map((appointment: any) => ({
+        id: appointment.appointment_id,
         type: 'Wedding Appointment',
+        wedding_date: appointment.wedding_date,
+        status: appointment.appointments.status,
       }));
-      setAppointments(updatedData);
+      setAppointments(formattedAppointments);
     }
   };
 
@@ -94,17 +86,13 @@ const Appointment = () => {
     router.push(screen as any);
   };
 
-  const handleAppointmentClick = (appointmentId: number) => {
-    router.push({
-      pathname: '/appointment/wedding-appointment-details',
-      params: { appointmentId: appointmentId.toString() },
-    });
+  const handleAppointmentClick = (appointmentId: string) => {
+    router.push(`/appointment/wedding-appointment-details?appointmentId=${appointmentId}`);
   };
 
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContainer}>
-        {/* Title Section */}
         <View style={styles.headerContainer}>
           <Text style={styles.title}>Book an Appointment</Text>
           <Text style={styles.description}>
@@ -112,7 +100,6 @@ const Appointment = () => {
           </Text>
         </View>
 
-        {/* Services Grid */}
         <View style={styles.servicesGrid}>
           {services.map((service, index) => (
             <TouchableOpacity
@@ -126,10 +113,8 @@ const Appointment = () => {
           ))}
         </View>
 
-        {/* Divider */}
         <View style={styles.divider} />
 
-        {/* Appointment Details Section */}
         <View style={styles.appointmentsSection}>
           <Text style={styles.sectionTitle}>Appointments</Text>
 

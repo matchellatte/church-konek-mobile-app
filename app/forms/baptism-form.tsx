@@ -28,12 +28,13 @@ const BaptismForm: React.FC = () => {
   const fetchAvailableDates = async () => {
     const { data, error } = await supabase
       .from('appointments')
-      .select('date')
-      .eq('status', 'Available');
+      .select('appointment_date')
+      .eq('status', 'available');
+      
     if (error) {
       console.log('Error fetching available dates:', error);
     } else {
-      const dates = data.map((item: any) => item.date);
+      const dates = data.map((item: any) => item.appointment_date);
       setAvailableDates(dates);
     }
   };
@@ -44,21 +45,57 @@ const BaptismForm: React.FC = () => {
       return;
     }
 
-    const { data, error } = await supabase.from('baptism_appointments').insert([
-      {
-        child_name: childName,
-        parent_name: parentName,
-        contact_number: contactNumber,
-        baptism_date: selectedDate,
-        status: 'Pending Approval',
-      },
-    ]);
+    try {
+      const userResponse = await supabase.auth.getUser();
+      const userId = userResponse.data?.user?.id;
+      if (!userId) {
+        Alert.alert('Error', 'User is not authenticated.');
+        return;
+      }
 
-    if (error) {
-      Alert.alert('Error booking appointment. Please try again.');
-    } else {
-      Alert.alert('Appointment booked successfully. Awaiting approval.');
-      router.back();
+      // Step 1: Create an Appointment
+      const { data: appointmentData, error: appointmentError } = await supabase
+        .from('appointments')
+        .insert([
+          {
+            user_id: userId,
+            service_id: (await supabase.from('services').select('service_id').eq('name', 'Baptism').single()).data?.service_id,
+            appointment_date: selectedDate,
+            status: 'pending'
+          }
+        ])
+        .select('appointment_id')
+        .single();
+
+      if (appointmentError || !appointmentData) {
+        console.error('Error creating appointment:', appointmentError);
+        Alert.alert('Error', 'Failed to create an appointment. Please try again.');
+        return;
+      }
+
+      const appointmentId = appointmentData.appointment_id;
+
+      // Step 2: Insert into BaptismForms table with the generated appointment_id
+      const { error: formError } = await supabase.from('baptismforms').insert([
+        {
+          child_name: childName,
+          guardian_name: parentName,
+          contact_number: contactNumber,
+          baptism_date: selectedDate,
+          appointment_id: appointmentId,
+        },
+      ]);
+
+      if (formError) {
+        console.error('Form submission error:', formError);
+        Alert.alert('Error', 'Failed to book baptism appointment. Please try again.');
+      } else {
+        Alert.alert('Success', 'Baptism appointment booked successfully.');
+        router.back();
+      }
+    } catch (error) {
+      console.error('Unexpected error booking appointment:', error);
+      Alert.alert('Error', 'An unexpected error occurred. Please try again.');
     }
   };
 
