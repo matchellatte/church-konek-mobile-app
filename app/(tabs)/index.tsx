@@ -9,17 +9,86 @@ import {
   TouchableOpacity,
   SafeAreaView,
   Dimensions,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { supabase } from '../../backend/lib/supabase'; // Import Supabase client
+import { supabase } from '../../backend/lib/supabase';
+import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
+import * as Notifications from 'expo-notifications';
+import * as Device from 'expo-device';
 
 const { width } = Dimensions.get('window');
 
 const HomePage = () => {
-  const router = useRouter(); // Use Expo Router
+  const router = useRouter();
   const [userName] = useState('Grechelle Ann');
   const [searchQuery, setSearchQuery] = useState('');
+  
+  interface Notification {
+    notification_id: string;
+    message: string;
+    is_read: boolean;
+    created_at: string;
+    user_id: string;
+  }
+
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  // Initialize notifications with sound settings
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: false,
+    }),
+  });
+
+  // Ask for notification permissions and get the push token
+  const registerForPushNotificationsAsync = async () => {
+    let token;
+  
+    if (Device.isDevice) {
+      const { status: existingStatus } = await Notifications.getPermissionsAsync();
+      let finalStatus = existingStatus;
+  
+      if (existingStatus !== 'granted') {
+        const { status } = await Notifications.requestPermissionsAsync();
+        finalStatus = status;
+      }
+  
+      if (finalStatus !== 'granted') {
+        Alert.alert('Error', 'Notification permissions are required to receive notifications.');
+        return;
+      }
+  
+      // Use the projectId from Constants
+      const projectId = Constants.manifest?.extra?.eas?.projectId;
+      token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
+      console.log('Push Token:', token);
+    } else {
+      Alert.alert('Error', 'Must use physical device for Push Notifications');
+    }
+  
+    return token;
+  };
+
+  const savePushTokenToDatabase = async (token: string) => {
+    const user = (await supabase.auth.getUser()).data.user;
+    if (user) {
+      const { error } = await supabase
+        .from('users')
+        .update({ push_token: token })
+        .eq('user_id', user.id);
+
+      if (error) {
+        console.error('Error saving push token:', error);
+      }
+    }
+  };
+
+  // MassSchedule and ChurchEvent state and types
   interface MassSchedule {
     id: number;
     day: string;
@@ -32,54 +101,108 @@ const HomePage = () => {
     title: string;
     date: string;
   }
-
+  
   const [churchEvents, setChurchEvents] = useState<ChurchEvent[]>([]);
 
-  // Fetch mass schedule from Supabase
   const fetchMassSchedule = async () => {
     const { data, error } = await supabase
       .from('massschedule')
       .select('mass_id, day_of_week, time')
       .order('mass_id', { ascending: true });
-  
+
     if (error) {
       console.error('Error fetching mass schedule:', error);
     } else {
-      const formattedData = data.map((item: any) => ({
+      setMassSchedule(data.map(item => ({
         id: item.mass_id,
         day: item.day_of_week,
         time: item.time,
-      }));
-      setMassSchedule(formattedData);
+      })));
     }
   };
 
-  // Fetch church events from Supabase
   const fetchChurchEvents = async () => {
     const { data, error } = await supabase
       .from('event')
       .select('event_id, title, event_date')
       .order('event_date', { ascending: true });
-  
+
     if (error) {
       console.error('Error fetching church events:', error);
     } else {
-      const formattedEvents = data.map((item: any) => ({
+      setChurchEvents(data.map(item => ({
         id: item.event_id,
         title: item.title,
         date: item.event_date,
-      }));
-      setChurchEvents(formattedEvents);
+      })));
+    }
+  };
+
+  const fetchNotifications = async () => {
+    const user = (await supabase.auth.getUser()).data.user;
+    if (user) {
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching notifications:', error);
+      } else {
+        setNotifications(data || []);
+        setUnreadCount(data?.filter(notif => !notif.is_read).length || 0);
+      }
     }
   };
 
   useEffect(() => {
-    fetchMassSchedule();
-    fetchChurchEvents();
+    const initialize = async () => {
+      await registerForPushNotificationsAsync(); // Register for push notifications
+      await fetchMassSchedule();
+      await fetchChurchEvents();
+      await fetchNotifications();
+
+      // Real-time listener for new notifications
+      const userId = (await supabase.auth.getUser()).data.user?.id;
+      if (userId) {
+        const notificationsListener = supabase
+          .channel(`public:notifications:user_id=eq.${userId}`)
+          .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}` }, (payload) => {
+            const newNotification: Notification = {
+              notification_id: payload.new.notification_id,
+              message: payload.new.message,
+              is_read: payload.new.is_read,
+              created_at: payload.new.created_at,
+              user_id: payload.new.user_id,
+            };
+            setNotifications((prev: Notification[]) => [newNotification, ...prev]);
+            setUnreadCount(prev => prev + 1);
+            Notifications.scheduleNotificationAsync({
+              content: {
+                title: 'New Notification',
+                body: newNotification.message,
+                sound: true, // Play sound on notification
+              },
+              trigger: null,
+            });
+          })
+          .subscribe();
+
+        return () => {
+          notificationsListener.unsubscribe();
+        };
+      }
+    };
+
+    initialize();
   }, []);
 
-  const handleNavigate = (screen: '/' | '/appointment' | '/calendar' | '/profile') => {
-    router.push(screen); // Use router.push for navigation
+  const handleNavigate = (screen: string) => {
+    if (screen === '/notifications') {
+      setUnreadCount(0);
+    }
+    router.push(screen as any);
   };
 
   return (
@@ -87,7 +210,14 @@ const HomePage = () => {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.navbar}>
           <Text style={styles.greeting}>Hi {userName}!</Text>
-          <Ionicons name="notifications-outline" size={28} color="#333333" />
+          <TouchableOpacity onPress={() => handleNavigate('/notifications')}>
+            <Ionicons name="notifications-outline" size={28} color="#333333" />
+            {unreadCount > 0 && (
+              <View style={styles.unreadBadge}>
+                <Text style={styles.unreadCount}>{unreadCount}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
         </View>
 
         <Text style={styles.tagline}>Bringing the Church closer to you!</Text>
@@ -128,17 +258,6 @@ const HomePage = () => {
               <Text style={styles.scheduleTime}>{item.time}</Text>
             </View>
           ))}
-        </View>
-
-        {/* About Church Section */}
-        <View style={styles.container}>
-          <Text style={styles.subSectionTitle}>About Church</Text>
-          <Text style={styles.churchInfo}>
-            <Text style={styles.boldText}>Blessed Virgin Mary, Queen of The World Parish</Text>
-            {'\n'}
-            Established in 1971, the parish was carved from the parish of St. John the Baptist. The
-            pioneering parish priest was Fr. Armando Perez, who built the church and rectory.
-          </Text>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -188,30 +307,6 @@ const styles = StyleSheet.create({
     marginVertical: 10,
     color: '#333333',
   },
-  servicesContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-  serviceTile: {
-    width: '48%',
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    padding: 15,
-    marginBottom: 15,
-  },
-  serviceTextContainer: {
-    marginTop: 10,
-  },
-  serviceTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333333',
-  },
-  serviceDescription: {
-    fontSize: 14,
-    color: '#666',
-  },
   container: {
     backgroundColor: '#fff',
     borderRadius: 15,
@@ -258,11 +353,18 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#333',
   },
-  churchInfo: {
-    fontSize: 14,
-    color: '#545454',
+  unreadBadge: {
+    position: 'absolute',
+    top: -5,
+    right: -5,
+    backgroundColor: '#F44336',
+    borderRadius: 8,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
   },
-  boldText: {
+  unreadCount: {
+    color: '#FFF',
+    fontSize: 12,
     fontWeight: 'bold',
   },
   viewAllText: {

@@ -60,11 +60,9 @@ const AllAppointments = () => {
   };
 
   const handleAppointmentClick = (appointment: any) => {
-    if (appointment.type === 'Wedding') {
-      router.push(`/appointment/wedding-appointment-details?appointmentId=${appointment.id}` as any);
-    } else {
-      router.push(`/appointment/details?appointmentId=${appointment.id}` as any);
-    }
+    router.push(
+      `/appointment/details?appointmentId=${appointment.id}&appointmentType=${appointment.type}` as any
+    );
   };
 
   return (
@@ -100,6 +98,7 @@ const AllAppointments = () => {
     </SafeAreaView>
   );
 };
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
