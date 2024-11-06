@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { supabase } from '../../backend/lib/supabase'; // Adjust path as needed
+import { supabase } from '../../backend/lib/supabase';
 
 const services = [
   { label: 'Wedding', icon: 'heart-outline', screen: '/appointment/wedding' },
@@ -26,15 +26,7 @@ const services = [
 
 const Appointment = () => {
   const router = useRouter();
-  interface Appointment {
-    id: number;
-    title: string;
-    wedding_date: string;
-    status: string;
-    type: string;
-  }
-
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [appointments, setAppointments] = useState<any[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -46,10 +38,10 @@ const Appointment = () => {
       fetchAppointments();
     }
     
-    // Listen to real-time changes in the appointments table
-    const channel = supabase.channel('wedding_appointments')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'wedding_appointments' }, () => fetchAppointments())
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'wedding_appointments' }, () => fetchAppointments())
+    const channel = supabase
+      .channel('appointments')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'appointments' }, fetchAppointments)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'appointments' }, fetchAppointments)
       .subscribe();
 
     return () => {
@@ -58,35 +50,35 @@ const Appointment = () => {
   }, [userId]);
 
   const getCurrentUser = async () => {
-    const {
-      data: { user },
-      error,
-    } = await supabase.auth.getUser();
+    const { data, error } = await supabase.auth.getUser();
 
     if (error) {
       Alert.alert('Error', 'Failed to retrieve user information');
-    } else if (user) {
-      setUserId(user.id);
+    } else if (data.user) {
+      setUserId(data.user.id);
     }
   };
 
   const fetchAppointments = async () => {
     if (!userId) return;
-    
+
     const { data, error } = await supabase
-      .from('wedding_appointments')
-      .select('*')
-      .eq('user_id', userId) // Use user_id instead of id
-      .order('wedding_date', { ascending: false });
+      .from('appointments')
+      .select('*, services(name)')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false }) // Order by most recent creation date
+      .limit(3); // Get only the three most recent appointments
 
     if (error) {
       Alert.alert('Error fetching appointments', error.message);
     } else {
-      const updatedData = data.map((appointment: any) => ({
-        ...appointment,
-        type: 'Wedding Appointment',
+      const formattedAppointments = data.map((appointment: any) => ({
+        id: appointment.appointment_id,
+        type: appointment.services.name,
+        date: appointment.appointment_date,
+        status: appointment.status,
       }));
-      setAppointments(updatedData);
+      setAppointments(formattedAppointments);
     }
   };
 
@@ -94,17 +86,17 @@ const Appointment = () => {
     router.push(screen as any);
   };
 
-  const handleAppointmentClick = (appointmentId: number) => {
-    router.push({
-      pathname: '/appointment/wedding-appointment-details',
-      params: { appointmentId: appointmentId.toString() },
-    });
+  const handleAppointmentClick = (appointmentId: string) => {
+    router.push(`/appointment/details?appointmentId=${appointmentId}` as any);
+  };
+
+  const handleSeeAllAppointments = () => {
+    router.push('/all-appointments' as any);
   };
 
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContainer}>
-        {/* Title Section */}
         <View style={styles.headerContainer}>
           <Text style={styles.title}>Book an Appointment</Text>
           <Text style={styles.description}>
@@ -112,7 +104,6 @@ const Appointment = () => {
           </Text>
         </View>
 
-        {/* Services Grid */}
         <View style={styles.servicesGrid}>
           {services.map((service, index) => (
             <TouchableOpacity
@@ -126,31 +117,34 @@ const Appointment = () => {
           ))}
         </View>
 
-        {/* Divider */}
         <View style={styles.divider} />
 
-        {/* Appointment Details Section */}
         <View style={styles.appointmentsSection}>
-          <Text style={styles.sectionTitle}>Appointments</Text>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Appointments</Text>
+            <TouchableOpacity onPress={handleSeeAllAppointments}>
+              <Text style={styles.seeAllText}>See All</Text>
+            </TouchableOpacity>
+          </View>
 
-          {appointments.length === 0 ? (
-            <Text style={styles.noAppointmentsText}>No appointments yet</Text>
-          ) : (
-            appointments.map((appointment, index) => (
-              <TouchableOpacity
-                key={index}
-                style={styles.appointmentCard}
-                onPress={() => handleAppointmentClick(appointment.id)}
-              >
-                <View style={styles.appointmentContent}>
-                  <View style={styles.appointmentInfo}>
-                    <Text style={styles.appointmentType}>{appointment.type}</Text>
-                    <Text style={styles.appointmentDate}>{appointment.wedding_date}</Text>
-                  </View>
-                  <Text style={styles.appointmentStatus}>{appointment.status}</Text>
+          {appointments.slice(0, 3).map((appointment, index) => (
+            <TouchableOpacity
+              key={index}
+              style={styles.appointmentCard}
+              onPress={() => handleAppointmentClick(appointment.id)}
+            >
+              <View style={styles.appointmentContent}>
+                <View style={styles.appointmentInfo}>
+                  <Text style={styles.appointmentType}>{appointment.type}</Text>
+                  <Text style={styles.appointmentDate}>{appointment.date}</Text>
                 </View>
-              </TouchableOpacity>
-            ))
+                <Text style={styles.appointmentStatus}>{appointment.status}</Text>
+              </View>
+            </TouchableOpacity>
+          ))}
+
+          {appointments.length === 0 && (
+            <Text style={styles.noAppointmentsText}>No appointments yet</Text>
           )}
         </View>
       </ScrollView>
@@ -210,11 +204,21 @@ const styles = StyleSheet.create({
   appointmentsSection: {
     marginTop: 10,
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 10,
+  },
+  seeAllText: {
+    fontSize: 14,
+    color: '#6A5D43',
+    fontWeight: 'bold',
   },
   noAppointmentsText: {
     fontSize: 16,

@@ -19,7 +19,7 @@ const FuneralMass: React.FC<FuneralMassProps> = () => {
 
   // Navigate to the Funeral Mass form screen
   const handleAppointmentNavigation = () => {
-    router.push('/forms/appointment-form'); // Adjust this path
+    router.push('/forms/funeral-mass-form' as any); // Updated path to point to the actual form
   };
 
   return (

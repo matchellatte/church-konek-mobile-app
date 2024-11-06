@@ -38,28 +38,38 @@ const HomePage = () => {
   // Fetch mass schedule from Supabase
   const fetchMassSchedule = async () => {
     const { data, error } = await supabase
-      .from('mass_schedule')
-      .select('*')
-      .order('id', { ascending: true });
-
+      .from('massschedule')
+      .select('mass_id, day_of_week, time')
+      .order('mass_id', { ascending: true });
+  
     if (error) {
       console.error('Error fetching mass schedule:', error);
     } else {
-      setMassSchedule(data);
+      const formattedData = data.map((item: any) => ({
+        id: item.mass_id,
+        day: item.day_of_week,
+        time: item.time,
+      }));
+      setMassSchedule(formattedData);
     }
   };
 
   // Fetch church events from Supabase
   const fetchChurchEvents = async () => {
     const { data, error } = await supabase
-      .from('church_events')
-      .select('*')
-      .order('date', { ascending: true });
-
+      .from('event')
+      .select('event_id, title, event_date')
+      .order('event_date', { ascending: true });
+  
     if (error) {
       console.error('Error fetching church events:', error);
     } else {
-      setChurchEvents(data);
+      const formattedEvents = data.map((item: any) => ({
+        id: item.event_id,
+        title: item.title,
+        date: item.event_date,
+      }));
+      setChurchEvents(formattedEvents);
     }
   };
 

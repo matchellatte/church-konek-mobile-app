@@ -16,47 +16,69 @@ interface ChurchEvent {
   id: number;
   title: string;
   date: string;
+  description: string;
+}
+
+interface MarkedDates {
+  [key: string]: {
+    marked: boolean;
+    dotColor: string;
+    selected?: boolean;
+    selectedColor?: string;
+  };
 }
 
 const CalendarScreen = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState('');
-  const [markedDates, setMarkedDates] = useState<{ [key: string]: { marked: boolean; dotColor: string } }>({});
+  const [markedDates, setMarkedDates] = useState<MarkedDates>({});
   const [churchEvents, setChurchEvents] = useState<{ [key: string]: ChurchEvent[] }>({});
 
   const formatDate = (date: Date) => date.toISOString().split('T')[0];
 
-  // Fetch church events from Supabase
   const fetchChurchEvents = async () => {
     const { data, error } = await supabase
-      .from('church_events')
-      .select('*')
-      .order('date', { ascending: true });
-
+      .from('event') // Ensure table name matches your database
+      .select('event_id, title, event_date, description')
+      .order('event_date', { ascending: true });
+  
     if (error) {
       console.error('Error fetching church events:', error);
       Alert.alert('Error', 'Failed to fetch church events');
       return;
     }
-
-    // Group events by date
+  
+    console.log("Fetched Events:", data); // Log fetched data for debugging
+  
+    // Group events by date (extracting only the date component from event_date)
     const eventsByDate: { [key: string]: ChurchEvent[] } = {};
-    data.forEach((event: ChurchEvent) => {
-      if (!eventsByDate[event.date]) {
-        eventsByDate[event.date] = [];
+    data.forEach((event: any) => {
+      const eventDate = event.event_date.split('T')[0]; // Extract only the date part
+      if (!eventsByDate[eventDate]) {
+        eventsByDate[eventDate] = [];
       }
-      eventsByDate[event.date].push(event);
+      eventsByDate[eventDate].push({
+        id: event.event_id,
+        title: event.title,
+        date: eventDate,
+        description: event.description,
+      });
     });
-
+  
+    console.log("Grouped Events by Date:", eventsByDate); // Log events by date for debugging
+  
     // Mark the dates with events
-    const marked: { [key: string]: { marked: boolean; dotColor: string } } = {};
+    const marked: MarkedDates = {};
     Object.keys(eventsByDate).forEach((date) => {
       marked[date] = { marked: true, dotColor: '#C69C6D' };
     });
-
+  
+    console.log("Marked Dates:", marked); // Log marked dates for debugging
+  
     setChurchEvents(eventsByDate);
     setMarkedDates(marked);
   };
+  
 
   useEffect(() => {
     fetchChurchEvents();
@@ -118,6 +140,7 @@ const CalendarScreen = () => {
             churchEvents[selectedDay].map((event, index) => (
               <View key={index} style={styles.eventCard}>
                 <Text style={styles.eventText}>{event.title}</Text>
+                <Text style={styles.eventDescription}>{event.description}</Text>
               </View>
             ))
           ) : (
@@ -184,6 +207,11 @@ const styles = StyleSheet.create({
   eventText: {
     fontSize: 16,
     color: '#333',
+    fontWeight: 'bold',
+  },
+  eventDescription: {
+    fontSize: 14,
+    color: '#666',
   },
   noEventsText: {
     fontSize: 16,

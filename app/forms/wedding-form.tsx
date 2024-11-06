@@ -19,48 +19,110 @@ const WeddingForm: React.FC = () => {
   const [groomName, setGroomName] = useState('');
   const [contactNumber, setContactNumber] = useState('');
   const [selectedDate, setSelectedDate] = useState('');
-  const [availableDates, setAvailableDates] = useState<string[]>([]);
+  const [eventDates, setEventDates] = useState<string[]>([]);
 
   useEffect(() => {
-    fetchAvailableDates();
+    fetchEventDates();
   }, []);
 
-  const fetchAvailableDates = async () => {
+  // Fetch event dates from the event table
+  const fetchEventDates = async () => {
     const { data, error } = await supabase
-      .from('appointments')
-      .select('date')
-      .eq('status', 'Available');
+      .from('event')
+      .select('event_date');
+
     if (error) {
-      console.log('Error fetching available dates:', error);
+      console.log('Error fetching event dates:', error);
     } else {
-      const dates = data.map((item: any) => item.date);
-      setAvailableDates(dates);
+      const dates = data.map((item: any) => item.event_date.split('T')[0]); // Extract date part only
+      setEventDates(dates);
     }
   };
 
+  // Book the appointment and insert data into the WeddingForms table
   const handleAppointmentBooking = async () => {
     if (!brideName || !groomName || !contactNumber || !selectedDate) {
       Alert.alert('Please fill out all fields and choose a wedding date.');
       return;
     }
-
-    const { data, error } = await supabase.from('wedding_appointments').insert([
-      {
-        bride_name: brideName,
-        groom_name: groomName,
-        contact_number: contactNumber,
-        wedding_date: selectedDate,
-        status: 'Pending Approval',
-      },
-    ]);
-
-    if (error) {
-      Alert.alert('Error booking appointment. Please try again.');
-    } else {
-      Alert.alert('Appointment booked successfully. Awaiting approval.');
-      router.back();
+  
+    try {
+      // Fetch the current user's ID
+      const userResponse = await supabase.auth.getUser();
+      const userId = userResponse.data?.user?.id;
+      if (!userId) {
+        Alert.alert('Error', 'User is not authenticated.');
+        return;
+      }
+      console.log('User ID:', userId);
+  
+      // Fetch the service ID for "Wedding"
+      const { data: serviceData, error: serviceError } = await supabase
+        .from('services')
+        .select('service_id')
+        .eq('name', 'Wedding')
+        .single();
+  
+      if (serviceError || !serviceData) {
+        console.error('Error fetching service ID:', serviceError);
+        Alert.alert('Error', 'Failed to fetch the service ID for Wedding. Please try again.');
+        return;
+      }
+  
+      const serviceId = serviceData.service_id;
+      console.log('Service ID:', serviceId);
+  
+      // Step 1: Create an Appointment
+      const { data: appointmentData, error: appointmentError } = await supabase
+        .from('appointments')
+        .insert([
+          {
+            user_id: userId,
+            service_id: serviceId,
+            appointment_date: selectedDate,
+            status: 'pending',
+          }
+        ])
+        .select('appointment_id')
+        .single(); // Get the generated appointment_id
+  
+      if (appointmentError || !appointmentData) {
+        console.error('Error creating appointment:', appointmentError);
+        Alert.alert('Error', 'Failed to create an appointment. Please try again.');
+        return;
+      }
+  
+      const appointmentId = appointmentData.appointment_id;
+      console.log('Appointment ID:', appointmentId);
+  
+      // Step 2: Insert into WeddingForms table with the generated appointment_id
+      const { data: weddingFormData, error: formError } = await supabase.from('weddingforms').insert([
+        {
+          bride_name: brideName,
+          groom_name: groomName,
+          contact_number: contactNumber,
+          wedding_date: selectedDate,
+          appointment_id: appointmentId,
+        },
+      ]);
+  
+      if (formError) {
+        console.error('Form submission error:', formError); // Log detailed error for debugging
+        Alert.alert('Error', 'Failed to book wedding appointment. Please try again.');
+      } else {
+        console.log('Wedding form submitted successfully:', weddingFormData);
+        Alert.alert('Success', 'Wedding appointment booked successfully.');
+        router.back();
+      }
+    } catch (error) {
+      console.error('Unexpected error booking appointment:', error);
+      Alert.alert('Error', 'An unexpected error occurred. Please try again.');
     }
   };
+  
+  
+  
+  
 
   return (
     <SafeAreaView style={styles.container}>
@@ -102,8 +164,8 @@ const WeddingForm: React.FC = () => {
             onDayPress={(day: { dateString: string }) => setSelectedDate(day.dateString)}
             markedDates={{
               [selectedDate]: { selected: true, selectedColor: '#C69C6D' },
-              ...availableDates.reduce(
-                (acc, date) => ({ ...acc, [date]: { marked: true, dotColor: '#C69C6D' } }),
+              ...eventDates.reduce(
+                (acc, date) => ({ ...acc, [date]: { disabled: true, disableTouchEvent: true, dotColor: 'red' } }),
                 {}
               ),
             }}

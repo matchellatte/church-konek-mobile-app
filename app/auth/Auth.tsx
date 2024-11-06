@@ -32,42 +32,84 @@ const Auth: React.FC<AuthProps> = ({ mode }) => {
       Alert.alert('Validation Error', 'Passwords do not match.');
       return;
     }
-
+  
     if (!email || !password || (mode === 'signup' && !fullName)) {
       Alert.alert('Validation Error', 'All fields are required.');
       return;
     }
-
+  
     setLoading(true);
-
+  
     if (mode === 'login') {
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
-
+  
       if (error) {
         Alert.alert('Login Failed', error.message);
       } else {
         router.replace('/(tabs)');
       }
     } else {
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: { data: { full_name: fullName } },
       });
-
+  
       if (error) {
         Alert.alert('Signup Failed', error.message);
       } else {
-        Alert.alert('Signup Success', 'Please check your inbox for email verification!');
+        const userId = data.user?.id;
+        if (userId) {
+          try {
+            console.log('User ID:', userId);  // Log the user ID for verification
+  
+            // Insert the new user into the "Users" table
+            const { error: insertError } = await supabase
+              .from('users') // Ensure case sensitivity
+              .insert([
+                {
+                  user_id: userId,
+                  full_name: fullName,
+                  email: email,
+                },
+              ]);
+  
+            if (insertError) {
+              console.error('Error inserting user into Users table:', insertError);
+              Alert.alert('Signup Success', 'Please check your inbox for email verification!');
+            } else {
+              // Verification step: Fetch the user to confirm insertion
+              const { data: usersData, error: fetchError } = await supabase
+                .from('users')
+                .select('*')
+                .eq('user_id', userId);
+  
+              if (fetchError) {
+                console.error('Error fetching user for verification:', fetchError);
+              } else if (usersData && usersData.length > 0) {
+                console.log('User successfully inserted and verified in Users table:', usersData[0]);
+                Alert.alert('Signup Success', 'Please check your inbox for email verification!');
+              } else {
+                console.warn('User record was not found after insertion attempt.');
+                Alert.alert('Signup Success', 'User record not found. Please try again or contact support.');
+              }
+            }
+          } catch (error) {
+            console.error('Unexpected error during user insertion:', error);
+          }
+        }
         router.replace('/auth/login');
       }
     }
-
+  
     setLoading(false);
   }
+  
+  
+  
 
   const toggleAuthMode = () => {
     if (mode === 'login') {
