@@ -14,26 +14,26 @@ import * as DocumentPicker from 'expo-document-picker';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { supabase } from '../../../backend/lib/supabase';
 
-const WeddingAppointmentDetails = () => {
+const AppointmentDetails = () => {
   const router = useRouter();
-  const { appointmentId } = useLocalSearchParams();
+  const { appointmentId, appointmentType } = useLocalSearchParams();
   const [appointmentDetails, setAppointmentDetails] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
-    if (appointmentId) {
-      console.log("Fetching details for appointmentId:", appointmentId); // Log appointmentId
+    if (appointmentId && appointmentType) {
       fetchAppointmentDetails();
     } else {
-      console.warn("No appointmentId provided");
+      console.warn("No appointmentId or appointmentType provided");
     }
-  }, [appointmentId]);
+  }, [appointmentId, appointmentType]);
 
   const fetchAppointmentDetails = async () => {
     setLoading(true);
+    const tableName = `${(appointmentType as string).toLowerCase()}forms`;  // Convert appointmentType to lowercase
     const { data, error } = await supabase
-      .from('weddingforms')
+      .from(tableName)
       .select('*')
       .eq('appointment_id', appointmentId)
       .maybeSingle();
@@ -42,8 +42,8 @@ const WeddingAppointmentDetails = () => {
       console.error("Error fetching details:", error);
       Alert.alert('Error fetching appointment details', error.message);
     } else if (!data) {
-      console.warn("No details found for this appointmentId:", appointmentId); // Log if no data
-      Alert.alert('No details found', 'No wedding appointment details found for this ID.');
+      console.warn("No details found for this appointmentId:", appointmentId);
+      Alert.alert('No details found', `No ${appointmentType} appointment details found for this ID.`);
     } else {
       setAppointmentDetails(data);
     }
@@ -60,7 +60,7 @@ const WeddingAppointmentDetails = () => {
 
         const file = await fetch(fileUri).then((res) => res.blob());
         const { data, error } = await supabase.storage
-          .from('wedding-documents')
+          .from(`${appointmentType}-documents`)
           .upload(`appointments/${appointmentId}/${fileName}`, file, {
             cacheControl: '3600',
             upsert: true,
@@ -75,7 +75,7 @@ const WeddingAppointmentDetails = () => {
         const filePath = data.path;
         const columnToUpdate = getColumnFromDocumentType(documentType);
         await supabase
-          .from('wedding_appointments')
+          .from(`${appointmentType}_appointments`)
           .update({ [columnToUpdate]: filePath })
           .eq('appointment_id', appointmentId);
 
@@ -115,65 +115,35 @@ const WeddingAppointmentDetails = () => {
     );
   }
 
-  const canUploadPreCana = appointmentDetails?.status === 'Approved';
-  const canUploadDocuments = canUploadPreCana && appointmentDetails?.pre_cana_verified;
-
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.navBar}>
         <TouchableOpacity onPress={() => router.back()}>
           <Ionicons name="chevron-back-outline" size={30} color="#333" />
         </TouchableOpacity>
-        <Text style={styles.navTitle}>Wedding Appointment Details</Text>
+        <Text style={styles.navTitle}>{`${appointmentType} Appointment Details`}</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContainer}>
-        <Text style={styles.title}>Wedding Appointment Details</Text>
         {appointmentDetails ? (
           <View style={styles.detailsContainer}>
-            <Text style={styles.detailItem}>
-              <Text style={styles.detailLabel}>Bride's Name: </Text>
-              {appointmentDetails.bride_name}
-            </Text>
-            <Text style={styles.detailItem}>
-              <Text style={styles.detailLabel}>Groom's Name: </Text>
-              {appointmentDetails.groom_name}
-            </Text>
-            <Text style={styles.detailItem}>
-              <Text style={styles.detailLabel}>Wedding Date: </Text>
-              {appointmentDetails.wedding_date}
-            </Text>
-            <Text style={styles.detailItem}>
-              <Text style={styles.detailLabel}>Status: </Text>
-              {appointmentDetails.status}
-            </Text>
+            {Object.keys(appointmentDetails)
+              .filter((key) => !key.includes('id')) // Filter out keys with "id"
+              .map((key) => (
+                <Text key={key} style={styles.detailItem}>
+                  <Text style={styles.detailLabel}>{`${key.replace('_', ' ')}:`}</Text> {appointmentDetails[key]}
+                </Text>
+              ))}
 
             <View style={styles.separator} />
             <View style={styles.requirementsContainer}>
               <Text style={styles.requirementsTitle}>Prerequisite Requirement</Text>
-              <View style={styles.requirementItem}>
-                <Text>Pre-Cana Seminar</Text>
-                <TouchableOpacity
-                  style={[
-                    styles.uploadButton,
-                    !canUploadPreCana && styles.disabledButton,
-                  ]}
-                  disabled={!canUploadPreCana || uploading}
-                  onPress={() => handleFileUpload('Pre-Cana Seminar')}
-                >
-                  <Text style={styles.uploadButtonText}>Upload</Text>
-                </TouchableOpacity>
-              </View>
-
-              {['Baptismal Certificate', 'Birth Certificate', 'Confirmation Certificate', 'Marriage Bond'].map((doc) => (
+              {['Pre-Cana Seminar', 'Baptismal Certificate', 'Birth Certificate', 'Confirmation Certificate', 'Marriage Bond'].map((doc) => (
                 <View key={doc} style={styles.requirementItem}>
                   <Text>{doc}</Text>
                   <TouchableOpacity
-                    style={[
-                      styles.uploadButton,
-                      !canUploadDocuments && styles.disabledButton,
-                    ]}
-                    disabled={!canUploadDocuments || uploading}
+                    style={[styles.uploadButton, uploading && styles.disabledButton]}
+                    disabled={uploading}
                     onPress={() => handleFileUpload(doc)}
                   >
                     <Text style={styles.uploadButtonText}>Upload</Text>
@@ -197,7 +167,6 @@ const styles = StyleSheet.create({
   navTitle: { fontSize: 18, fontWeight: 'bold', color: '#333', marginLeft: 10 },
   scrollContainer: { padding: 20 },
   title: { fontSize: 24, fontWeight: 'bold', color: '#333', marginBottom: 20 },
-  appointmentListItem: { padding: 10, fontSize: 16, color: '#333' },
   detailsContainer: { backgroundColor: '#FFF', padding: 20, borderRadius: 10, elevation: 2 },
   detailItem: { fontSize: 16, color: '#333', marginBottom: 10 },
   detailLabel: { fontWeight: 'bold' },
@@ -211,4 +180,4 @@ const styles = StyleSheet.create({
   noDetailsText: { fontSize: 16, color: '#333', textAlign: 'center', marginTop: 20 },
 });
 
-export default WeddingAppointmentDetails;
+export default AppointmentDetails;

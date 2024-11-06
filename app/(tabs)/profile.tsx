@@ -14,12 +14,13 @@ import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '../../backend/lib/supabase';
+import { Upload } from 'tus-js-client';
 
 interface UserInfo {
   fullName: string;
   email: string;
   profileImage: { uri: string };
-  user_id: string; // Add user_id to the UserInfo type
+  user_id: string;
 }
 
 const Profile: React.FC = () => {
@@ -28,26 +29,36 @@ const Profile: React.FC = () => {
     fullName: '',
     email: '',
     profileImage: { uri: '' },
-    user_id: '', // Initialize user_id as an empty string
+    user_id: '',
   });
   const [loading, setLoading] = useState<boolean>(true);
 
-  // Load user info from Supabase
   const loadUserInfo = async () => {
     try {
       const { data: { user }, error } = await supabase.auth.getUser();
-
+  
       if (error) throw error;
       if (!user) throw new Error('User not found');
-
-      const { full_name, email, profile_image } = user.user_metadata;
-      const storedImageUri = profile_image || await AsyncStorage.getItem('profileImage');
-
+  
+      const { full_name, email } = user.user_metadata;
+  
+      // Fetch profile image URL from users table
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('profile_image')
+        .eq('user_id', user.id)
+        .single();
+  
+      if (userError) {
+        console.error('Error fetching profile image URL:', userError.message);
+        Alert.alert('Error', 'Failed to load profile image.');
+      }
+  
       setUserInfo({
         fullName: full_name || 'User Name',
         email: email || 'user@example.com',
-        profileImage: storedImageUri ? { uri: storedImageUri } : { uri: '' },
-        user_id: user.id, // Set the user_id here
+        profileImage: { uri: userData?.profile_image || '' }, // Use the URL from database
+        user_id: user.id,
       });
     } catch (error: any) {
       console.error('Error loading user info:', error.message);
@@ -56,6 +67,7 @@ const Profile: React.FC = () => {
       setLoading(false);
     }
   };
+  
 
   useEffect(() => {
     loadUserInfo();
@@ -78,71 +90,80 @@ const Profile: React.FC = () => {
     if (!result.canceled && result.assets && result.assets.length > 0) {
       try {
         const selectedImageUri = result.assets[0].uri;
-  
-        // Fetch the image and convert it to a blob
+
+        // Fetch the image and convert it to a Blob
         const response = await fetch(selectedImageUri);
-        if (!response.ok) {
-          throw new Error('Failed to fetch the image from the local URI');
-        }
-  
         const blob = await response.blob();
-        if (!blob) {
-          throw new Error('Failed to create blob from the image');
-        }
-  
-        const fileName = `profile-images/${userInfo.email}-${Date.now()}.jpg`;
-  
-        // Upload the image to Supabase storage
-        const { data, error } = await supabase.storage
-          .from('profile-images') // Ensure this matches your bucket name
-          .upload(fileName, blob, {
-            cacheControl: '3600',
-            upsert: true,
-          });
-  
-        if (error) {
-          console.error('Error uploading profile image:', error.message);
-          Alert.alert('Upload Failed', 'An error occurred while uploading the profile image.');
-          return;
-        }
-  
-        // Generate the public URL for the uploaded image
-        const { data: publicUrlData } = supabase.storage
-          .from('profile-images') // Ensure this matches your bucket name
-          .getPublicUrl(fileName);
-  
-        if (!publicUrlData?.publicUrl) {
-          console.error('Error generating public URL');
-          Alert.alert('Error', 'Could not generate the URL for the uploaded image.');
-          return;
-        }
-  
-        // Update the `profile_image` field in the `users` table
-        const { error: updateError } = await supabase
-          .from('users')
-          .update({ profile_image: publicUrlData.publicUrl })
-          .eq('user_id', userInfo.user_id);
-  
-        if (updateError) {
-          console.error('Error updating user profile image:', updateError.message);
-          Alert.alert('Error', 'Could not update the profile image in the database.');
-          return;
-        }
-  
-        // Update the local state to reflect the new profile image
-        setUserInfo((prev) => ({ ...prev, profileImage: { uri: publicUrlData.publicUrl } }));
-        Alert.alert('Success', 'Profile picture updated!');
+        const fileName = `${userInfo.email}-${Date.now()}.jpg`;
+
+        // Upload the image using tus-js-client
+        await uploadFileToSupabase(blob, fileName);
+        
       } catch (error) {
         console.error('Error during profile image change:', error);
         Alert.alert('Error', 'An unexpected error occurred. Please try again.');
       }
     }
   };
+
+  const uploadFileToSupabase = async (file: Blob, fileName: string) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    const projectId = 'lrvhrdvpaywowecfncxj';
+    const bucketName = 'profiles';
   
+    return new Promise<void>((resolve, reject) => {
+      const upload = new Upload(file, {
+        endpoint: `https://${projectId}.supabase.co/storage/v1/upload/resumable`,
+        retryDelays: [0, 3000, 5000, 10000, 20000],
+        headers: {
+          authorization: `Bearer ${session?.access_token}`,
+          'x-upsert': 'true',
+        },
+        uploadDataDuringCreation: true,
+        removeFingerprintOnSuccess: true,
+        metadata: {
+          bucketName,
+          objectName: fileName,
+          contentType: 'image/jpeg',
+        },
+        chunkSize: 6 * 1024 * 1024,
+        onError: function (error) {
+          console.log('Failed because:', error);
+          reject(error);
+        },
+        onProgress: function (bytesUploaded, bytesTotal) {
+          const percentage = ((bytesUploaded / bytesTotal) * 100).toFixed(2);
+          console.log(`${percentage}% uploaded`);
+        },
+        onSuccess: async function () {
+          const publicUrl = `https://${projectId}.supabase.co/storage/v1/object/public/${bucketName}/${fileName}`;
+          
+          // Update the profile image URL in the Supabase users table
+          const { error: updateError } = await supabase
+            .from('users')
+            .update({ profile_image: publicUrl })
+            .eq('user_id', userInfo.user_id);
   
+          if (updateError) {
+            console.error('Error updating profile image URL:', updateError);
+            Alert.alert('Error', 'Failed to update profile image URL.');
+          } else {
+            setUserInfo((prev) => ({ ...prev, profileImage: { uri: publicUrl } }));
+            Alert.alert('Success', 'Profile picture updated!');
+            resolve();
+          }
+        },
+      });
   
+      upload.findPreviousUploads().then(function (previousUploads) {
+        if (previousUploads.length) {
+          upload.resumeFromPreviousUpload(previousUploads[0]);
+        }
   
-  
+        upload.start();
+      });
+    });
+  };
 
   const handleSignOut = async () => {
     try {
@@ -190,24 +211,6 @@ const Profile: React.FC = () => {
           <View style={styles.divider} />
           <TouchableOpacity style={styles.row} onPress={() => Alert.alert('Manage Payment')}>
             <Text style={styles.rowText}>Manage Payment</Text>
-            <Ionicons name="chevron-forward-outline" size={20} color="#666" />
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Settings</Text>
-          <TouchableOpacity style={styles.row} onPress={() => Alert.alert('Notifications')}>
-            <Text style={styles.rowText}>Notifications</Text>
-            <Ionicons name="chevron-forward-outline" size={20} color="#666" />
-          </TouchableOpacity>
-          <View style={styles.divider} />
-          <TouchableOpacity style={styles.row} onPress={() => Alert.alert('FAQs')}>
-            <Text style={styles.rowText}>FAQs</Text>
-            <Ionicons name="chevron-forward-outline" size={20} color="#666" />
-          </TouchableOpacity>
-          <View style={styles.divider} />
-          <TouchableOpacity style={styles.row} onPress={() => Alert.alert('About Us')}>
-            <Text style={styles.rowText}>About Us</Text>
             <Ionicons name="chevron-forward-outline" size={20} color="#666" />
           </TouchableOpacity>
         </View>

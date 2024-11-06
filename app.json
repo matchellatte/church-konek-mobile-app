@@ -2,6 +2,11 @@
   "expo": {
     "name": "church-konek-mobile-app",
     "slug": "church-konek-mobile-app",
+    "extra": {
+      "eas": {
+        "projectId": "58a22f52-d1bb-409f-b2c3-7dc77f0510a7"
+      }
+    },
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
