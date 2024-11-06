@@ -8,27 +8,62 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
-  Switch,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router'; // Use Expo Router
-import SubmitButton from '../../../components/SubmitButton'; // Update the path if needed
+import { useRouter } from 'expo-router';
+import SubmitButton from '../../../components/SubmitButton';
+import { supabase } from '../../../backend/lib/supabase';
 
 const PrayerIntention: React.FC = () => {
   const router = useRouter();
-  const [intention, setIntention] = useState<string>('');
-  const [includeDonation, setIncludeDonation] = useState<boolean>(false);
+  const [fullName, setFullName] = useState('');
+  const [contactNumber, setContactNumber] = useState('');
+  const [intention, setIntention] = useState('');
 
-  const handleSubmit = () => {
-    const message = includeDonation
-      ? 'Your prayer intention and donation request have been submitted.'
-      : 'Your prayer intention has been submitted.';
-    Alert.alert('Thank You', message);
+  const handleSubmit = async () => {
+    if (!fullName || !contactNumber || !intention) {
+      Alert.alert('Validation Error', 'Please fill out all fields.');
+      return;
+    }
+
+    try {
+      // Fetch the current user's ID
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError || !user) {
+        Alert.alert('Error', 'Unable to retrieve user information. Please try again.');
+        return;
+      }
+
+      // Insert prayer intention with user_id into the database
+      const { data, error } = await supabase.from('prayerintentionforms').insert([
+        {
+          user_id: user.id, // Store user_id
+          full_name: fullName,
+          contact_number: contactNumber,
+          prayer_text: intention,
+          status: 'pending',
+        },
+      ]);
+
+      if (error) {
+        console.error('Error submitting prayer intention:', error);
+        Alert.alert('Submission Failed', 'An error occurred. Please try again.');
+      } else {
+        Alert.alert('Thank You', 'Your prayer intention has been submitted.');
+        router.back();
+      }
+    } catch (error) {
+      console.error('Unexpected error:', error);
+      Alert.alert('Submission Failed', 'An unexpected error occurred. Please try again.');
+    }
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Top Navbar */}
       <View style={styles.navbar}>
         <TouchableOpacity onPress={() => router.back()}>
           <Ionicons name="chevron-back-outline" size={30} color="#333" />
@@ -37,48 +72,47 @@ const PrayerIntention: React.FC = () => {
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* Description Section */}
+        {/* Contact Information Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Contact Information</Text>
+
+          <Text style={styles.fieldLabel}>Full Name</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Enter your full name"
+            value={fullName}
+            onChangeText={setFullName}
+          />
+
+          <Text style={styles.fieldLabel}>Contact Number</Text>
+          <TextInput
+            style={[styles.input]}
+            placeholder="Enter contact number"
+            value={contactNumber}
+            onChangeText={setContactNumber}
+            keyboardType="phone-pad"
+          />
+        </View>
+
+        {/* Prayer Intention Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Submit Your Prayer Intention</Text>
           <Text style={styles.sectionDescription}>
-            Let us pray for you. Please share your prayer intention below, and
-            if you’d like, include a donation with your submission.
+            Let us pray for you. Please share your prayer intention below.
           </Text>
-        </View>
 
-        {/* Prayer Intention Input */}
-        <View style={styles.section}>
           <Text style={styles.fieldLabel}>Your Prayer Intention</Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, styles.prayerInput]}
             placeholder="Enter your prayer intention..."
             value={intention}
             onChangeText={setIntention}
             multiline
           />
         </View>
-
-        {/* Donation Option */}
-        <View style={styles.section}>
-          <View style={styles.switchRow}>
-            <Text style={styles.fieldLabel}>Include a Donation?</Text>
-            <Switch
-              value={includeDonation}
-              onValueChange={setIncludeDonation}
-              thumbColor={includeDonation ? '#C69C6D' : '#f4f3f4'}
-              trackColor={{ false: '#E0E0E0', true: '#C69C6D' }}
-            />
-          </View>
-          {includeDonation && (
-            <Text style={styles.donationNote}>
-              Thank you for your generosity! We will follow up with instructions
-              on how to complete your donation.
-            </Text>
-          )}
-        </View>
       </ScrollView>
 
-      {/* Submit Button - Positioned Above the Bottom Navigation */}
+      {/* Submit Button */}
       <View style={styles.fixedButtonContainer}>
         <SubmitButton label="Submit Prayer" onPress={handleSubmit} />
       </View>
@@ -105,7 +139,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 20,
-    paddingBottom: 80, // Leave space for the fixed button
+    paddingBottom: 80,
   },
   section: {
     backgroundColor: '#fff',
@@ -122,6 +156,7 @@ const styles = StyleSheet.create({
   sectionDescription: {
     fontSize: 14,
     color: '#666',
+    marginBottom: 10,
   },
   fieldLabel: {
     fontSize: 16,
@@ -135,22 +170,16 @@ const styles = StyleSheet.create({
     padding: 15,
     borderColor: '#E0E0E0',
     borderWidth: 1,
-    minHeight: 100,
+    minHeight: 40,
     textAlignVertical: 'top',
+    marginBottom: 15,
   },
-  switchRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  donationNote: {
-    marginTop: 10,
-    fontSize: 14,
-    color: '#666',
+  prayerInput: {
+    minHeight: 100, // Larger input area for prayer intention
   },
   fixedButtonContainer: {
     position: 'absolute',
-    bottom: 80, // Adjust height to position above the bottom tabs
+    bottom: 80,
     left: 0,
     right: 0,
     paddingHorizontal: 20,
