@@ -26,7 +26,6 @@ const services = [
 
 const Appointment = () => {
   const router = useRouter();
-
   const [appointments, setAppointments] = useState<any[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
 
@@ -41,8 +40,8 @@ const Appointment = () => {
     
     const channel = supabase
       .channel('appointments')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'weddingforms' }, fetchAppointments)
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'weddingforms' }, fetchAppointments)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'appointments' }, fetchAppointments)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'appointments' }, fetchAppointments)
       .subscribe();
 
     return () => {
@@ -64,19 +63,20 @@ const Appointment = () => {
     if (!userId) return;
 
     const { data, error } = await supabase
-      .from('weddingforms')
-      .select('*, appointments(status)')
-      .eq('appointments.user_id', userId)
-      .order('wedding_date', { ascending: false });
+      .from('appointments')
+      .select('*, services(name)')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false }) // Order by most recent creation date
+      .limit(3); // Get only the three most recent appointments
 
     if (error) {
       Alert.alert('Error fetching appointments', error.message);
     } else {
       const formattedAppointments = data.map((appointment: any) => ({
         id: appointment.appointment_id,
-        type: 'Wedding Appointment',
-        wedding_date: appointment.wedding_date,
-        status: appointment.appointments.status,
+        type: appointment.services.name,
+        date: appointment.appointment_date,
+        status: appointment.status,
       }));
       setAppointments(formattedAppointments);
     }
@@ -87,7 +87,11 @@ const Appointment = () => {
   };
 
   const handleAppointmentClick = (appointmentId: string) => {
-    router.push(`/appointment/wedding-appointment-details?appointmentId=${appointmentId}`);
+    router.push(`/appointment/details?appointmentId=${appointmentId}` as any);
+  };
+
+  const handleSeeAllAppointments = () => {
+    router.push('/all-appointments' as any);
   };
 
   return (
@@ -116,26 +120,31 @@ const Appointment = () => {
         <View style={styles.divider} />
 
         <View style={styles.appointmentsSection}>
-          <Text style={styles.sectionTitle}>Appointments</Text>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Appointments</Text>
+            <TouchableOpacity onPress={handleSeeAllAppointments}>
+              <Text style={styles.seeAllText}>See All</Text>
+            </TouchableOpacity>
+          </View>
 
-          {appointments.length === 0 ? (
-            <Text style={styles.noAppointmentsText}>No appointments yet</Text>
-          ) : (
-            appointments.map((appointment, index) => (
-              <TouchableOpacity
-                key={index}
-                style={styles.appointmentCard}
-                onPress={() => handleAppointmentClick(appointment.id)}
-              >
-                <View style={styles.appointmentContent}>
-                  <View style={styles.appointmentInfo}>
-                    <Text style={styles.appointmentType}>{appointment.type}</Text>
-                    <Text style={styles.appointmentDate}>{appointment.wedding_date}</Text>
-                  </View>
-                  <Text style={styles.appointmentStatus}>{appointment.status}</Text>
+          {appointments.slice(0, 3).map((appointment, index) => (
+            <TouchableOpacity
+              key={index}
+              style={styles.appointmentCard}
+              onPress={() => handleAppointmentClick(appointment.id)}
+            >
+              <View style={styles.appointmentContent}>
+                <View style={styles.appointmentInfo}>
+                  <Text style={styles.appointmentType}>{appointment.type}</Text>
+                  <Text style={styles.appointmentDate}>{appointment.date}</Text>
                 </View>
-              </TouchableOpacity>
-            ))
+                <Text style={styles.appointmentStatus}>{appointment.status}</Text>
+              </View>
+            </TouchableOpacity>
+          ))}
+
+          {appointments.length === 0 && (
+            <Text style={styles.noAppointmentsText}>No appointments yet</Text>
           )}
         </View>
       </ScrollView>
@@ -195,11 +204,21 @@ const styles = StyleSheet.create({
   appointmentsSection: {
     marginTop: 10,
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 10,
+  },
+  seeAllText: {
+    fontSize: 14,
+    color: '#6A5D43',
+    fontWeight: 'bold',
   },
   noAppointmentsText: {
     fontSize: 16,

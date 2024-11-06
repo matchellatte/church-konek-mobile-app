@@ -12,61 +12,52 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { supabase } from '../../../backend/lib/supabase'; // Adjust the path as needed
-
-interface WeddingAppointment {
-  id: number;
-  bride_name: string;
-  groom_name: string;
-  wedding_date: string;
-  status: string;
-  contact_number: string;
-  pre_cana_verified: boolean; // Boolean to check if Pre-Cana is verified
-  additional_notes?: string; // Optional field for additional notes
-}
+import { supabase } from '../../../backend/lib/supabase';
 
 const WeddingAppointmentDetails = () => {
   const router = useRouter();
-  const { appointmentId } = useLocalSearchParams(); // Get the ID from route parameters
-  const [appointmentDetails, setAppointmentDetails] = useState<WeddingAppointment | null>(null);
+  const { appointmentId } = useLocalSearchParams();
+  const [appointmentDetails, setAppointmentDetails] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     if (appointmentId) {
+      console.log("Fetching details for appointmentId:", appointmentId); // Log appointmentId
       fetchAppointmentDetails();
+    } else {
+      console.warn("No appointmentId provided");
     }
   }, [appointmentId]);
 
   const fetchAppointmentDetails = async () => {
     setLoading(true);
     const { data, error } = await supabase
-      .from('wedding_appointments')
+      .from('weddingforms')
       .select('*')
-      .eq('id', appointmentId)
-      .single(); // Get a single record
+      .eq('appointment_id', appointmentId)
+      .maybeSingle();
 
     if (error) {
+      console.error("Error fetching details:", error);
       Alert.alert('Error fetching appointment details', error.message);
-      setLoading(false);
-      return;
+    } else if (!data) {
+      console.warn("No details found for this appointmentId:", appointmentId); // Log if no data
+      Alert.alert('No details found', 'No wedding appointment details found for this ID.');
+    } else {
+      setAppointmentDetails(data);
     }
-
-    setAppointmentDetails(data);
     setLoading(false);
   };
 
   const handleFileUpload = async (documentType: string) => {
     try {
       const result = await DocumentPicker.getDocumentAsync({ type: '*/*' });
-
-      // Check if the operation was successful
       if (result && result.assets && result.assets.length > 0) {
         const fileUri = result.assets[0].uri;
         const fileName = `${documentType}.pdf`;
         setUploading(true);
 
-        // Upload the file to Supabase Storage
         const file = await fetch(fileUri).then((res) => res.blob());
         const { data, error } = await supabase.storage
           .from('wedding-documents')
@@ -81,16 +72,15 @@ const WeddingAppointmentDetails = () => {
           return;
         }
 
-        // Save file path to the database
         const filePath = data.path;
         const columnToUpdate = getColumnFromDocumentType(documentType);
         await supabase
           .from('wedding_appointments')
           .update({ [columnToUpdate]: filePath })
-          .eq('id', appointmentId);
+          .eq('appointment_id', appointmentId);
 
         Alert.alert('Upload Successful', `${documentType} uploaded successfully.`);
-        fetchAppointmentDetails(); // Refresh details after upload
+        fetchAppointmentDetails();
       }
     } catch (error) {
       console.error('Error during file upload:', error);
@@ -130,17 +120,15 @@ const WeddingAppointmentDetails = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Back Button */}
       <View style={styles.navBar}>
         <TouchableOpacity onPress={() => router.back()}>
           <Ionicons name="chevron-back-outline" size={30} color="#333" />
         </TouchableOpacity>
-        <Text style={styles.navTitle}>Appointment Details</Text>
+        <Text style={styles.navTitle}>Wedding Appointment Details</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <Text style={styles.title}>Wedding Appointment Details</Text>
-
         {appointmentDetails ? (
           <View style={styles.detailsContainer}>
             <Text style={styles.detailItem}>
@@ -159,21 +147,8 @@ const WeddingAppointmentDetails = () => {
               <Text style={styles.detailLabel}>Status: </Text>
               {appointmentDetails.status}
             </Text>
-            <Text style={styles.detailItem}>
-              <Text style={styles.detailLabel}>Contact Number: </Text>
-              {appointmentDetails.contact_number}
-            </Text>
-            {appointmentDetails.additional_notes && (
-              <Text style={styles.detailItem}>
-                <Text style={styles.detailLabel}>Additional Notes: </Text>
-                {appointmentDetails.additional_notes}
-              </Text>
-            )}
 
-            {/* Separator for Visual Clarity */}
             <View style={styles.separator} />
-
-            {/* Prerequisite Requirement Section */}
             <View style={styles.requirementsContainer}>
               <Text style={styles.requirementsTitle}>Prerequisite Requirement</Text>
               <View style={styles.requirementItem}>
@@ -190,20 +165,6 @@ const WeddingAppointmentDetails = () => {
                 </TouchableOpacity>
               </View>
 
-              {!canUploadPreCana && (
-                <Text style={styles.indicatorText}>
-                  Appointment Status should be "Approved" first to upload the requirements.
-                </Text>
-              )}
-            </View>
-
-            {/* Separator for Visual Clarity */}
-            <View style={styles.separator} />
-
-            {/* Documents Requirements Section */}
-            <View style={styles.requirementsContainer}>
-              <Text style={styles.requirementsTitle}>Documents Requirements</Text>
-
               {['Baptismal Certificate', 'Birth Certificate', 'Confirmation Certificate', 'Marriage Bond'].map((doc) => (
                 <View key={doc} style={styles.requirementItem}>
                   <Text>{doc}</Text>
@@ -219,12 +180,6 @@ const WeddingAppointmentDetails = () => {
                   </TouchableOpacity>
                 </View>
               ))}
-
-              {!canUploadDocuments && canUploadPreCana && (
-                <Text style={styles.indicatorText}>
-                  Pre-Cana Seminar should be completed first before uploading the document requirements.
-                </Text>
-              )}
             </View>
           </View>
         ) : (
@@ -236,97 +191,24 @@ const WeddingAppointmentDetails = () => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FAFAFA',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  navBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 15,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
-  },
-  navTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-    marginLeft: 10,
-  },
-  scrollContainer: {
-    padding: 20,
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-  detailsContainer: {
-    backgroundColor: '#FFF',
-    padding: 20,
-    borderRadius: 10,
-    elevation: 2,
-  },
-  detailItem: {
-    fontSize: 16,
-    color: '#333',
-    marginBottom: 10,
-  },
-  detailLabel: {
-    fontWeight: 'bold',
-  },
-  separator: {
-    height: 1,
-    backgroundColor: '#E0E0E0',
-    marginVertical: 20,
-  },
-  requirementsContainer: {
-    marginBottom: 20,
-  },
-  requirementsTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 10,
-  },
-  requirementItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  uploadButton: {
-    backgroundColor: '#C69C6D',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-  },
-  uploadButtonText: {
-    color: '#FFF',
-    fontWeight: 'bold',
-  },
-  disabledButton: {
-    backgroundColor: '#CCC',
-  },
-  indicatorText: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 5,
-  },
-  noDetailsText: {
-    fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
-    marginTop: 20,
-  },
+  container: { flex: 1, backgroundColor: '#FAFAFA' },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  navBar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 15, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#E0E0E0' },
+  navTitle: { fontSize: 18, fontWeight: 'bold', color: '#333', marginLeft: 10 },
+  scrollContainer: { padding: 20 },
+  title: { fontSize: 24, fontWeight: 'bold', color: '#333', marginBottom: 20 },
+  appointmentListItem: { padding: 10, fontSize: 16, color: '#333' },
+  detailsContainer: { backgroundColor: '#FFF', padding: 20, borderRadius: 10, elevation: 2 },
+  detailItem: { fontSize: 16, color: '#333', marginBottom: 10 },
+  detailLabel: { fontWeight: 'bold' },
+  separator: { height: 1, backgroundColor: '#E0E0E0', marginVertical: 20 },
+  requirementsContainer: { marginBottom: 20 },
+  requirementsTitle: { fontSize: 18, fontWeight: 'bold', color: '#333', marginBottom: 10 },
+  requirementItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+  uploadButton: { backgroundColor: '#C69C6D', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8 },
+  uploadButtonText: { color: '#FFF', fontWeight: 'bold' },
+  disabledButton: { backgroundColor: '#CCC' },
+  noDetailsText: { fontSize: 16, color: '#333', textAlign: 'center', marginTop: 20 },
 });
 
 export default WeddingAppointmentDetails;
