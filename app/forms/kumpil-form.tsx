@@ -1,15 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  SafeAreaView, 
-  View, 
-  Text, 
-  StyleSheet, 
-  TextInput, 
-  TouchableOpacity, 
-  ScrollView, 
-  Alert 
+import {
+  SafeAreaView,
+  View,
+  Text,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  ScrollView,
+  Alert,
 } from 'react-native';
 import { Calendar } from 'react-native-calendars';
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { supabase } from '../../backend/lib/supabase';
 
@@ -21,23 +22,22 @@ const KumpilForm: React.FC = () => {
   const [ninongName, setNinongName] = useState('');
   const [ninangName, setNinangName] = useState('');
   const [selectedDate, setSelectedDate] = useState('');
-  const [availableDates, setAvailableDates] = useState<string[]>([]);
+  const [eventDates, setEventDates] = useState<string[]>([]);
 
   useEffect(() => {
-    fetchAvailableDates();
+    fetchEventDates();
   }, []);
 
-  const fetchAvailableDates = async () => {
+  const fetchEventDates = async () => {
     const { data, error } = await supabase
-      .from('appointments')
-      .select('appointment_date')
-      .eq('status', 'Available');
-      
+      .from('event') // Replace 'appointments' with the appropriate table name
+      .select('event_date');
+
     if (error) {
-      console.log('Error fetching available dates:', error);
+      console.error('Error fetching event dates:', error);
     } else {
-      const dates = data.map((item: any) => item.appointment_date);
-      setAvailableDates(dates);
+      const dates = data.map((item: any) => item.event_date.split('T')[0]); // Extract date part only
+      setEventDates(dates);
     }
   };
 
@@ -82,7 +82,7 @@ const KumpilForm: React.FC = () => {
             service_id: serviceId,
             appointment_date: selectedDate,
             status: 'pending', // Initial status
-          }
+          },
         ])
         .select('appointment_id')
         .single();
@@ -124,9 +124,15 @@ const KumpilForm: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.title}>Kumpil Form</Text>
+      {/* Custom Navbar */}
+      <View style={styles.navbar}>
+        <TouchableOpacity onPress={() => router.back()}>
+          <Ionicons name="chevron-back-outline" size={30} color="#333" />
+        </TouchableOpacity>
+        <Text style={styles.navTitle}>Kumpil Form</Text>
+      </View>
 
+      <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.section}>
           <Text style={styles.label}>Full Name:</Text>
           <TextInput
@@ -176,8 +182,11 @@ const KumpilForm: React.FC = () => {
             onDayPress={(day: { dateString: string }) => setSelectedDate(day.dateString)}
             markedDates={{
               [selectedDate]: { selected: true, selectedColor: '#C69C6D' },
-              ...availableDates.reduce(
-                (acc, date) => ({ ...acc, [date]: { disabled: true, disableTouchEvent: true, dotColor: 'red' } }),
+              ...eventDates.reduce(
+                (acc, date) => ({
+                  ...acc,
+                  [date]: { disabled: true, disableTouchEvent: true, dotColor: 'red' },
+                }),
                 {}
               ),
             }}
@@ -197,15 +206,22 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F8F8F8',
   },
+  navbar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 15,
+    paddingVertical: 20,
+    backgroundColor: '#fff',
+  },
+  navTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#333',
+    marginLeft: 10,
+  },
   scrollContent: {
     padding: 20,
     paddingBottom: 50,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 20,
   },
   section: {
     backgroundColor: '#fff',

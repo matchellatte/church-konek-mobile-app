@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import {
+  SafeAreaView,
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   ScrollView,
   TouchableOpacity,
   Alert,
@@ -37,7 +37,7 @@ const Appointment = () => {
     if (userId) {
       fetchAppointments();
     }
-    
+
     const channel = supabase
       .channel('appointments')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'appointments' }, fetchAppointments)
@@ -66,8 +66,8 @@ const Appointment = () => {
       .from('appointments')
       .select('*, services(name)')
       .eq('user_id', userId)
-      .order('created_at', { ascending: false }) // Order by most recent creation date
-      .limit(3); // Get only the three most recent appointments
+      .order('created_at', { ascending: false })
+      .limit(3);
 
     if (error) {
       Alert.alert('Error fetching appointments', error.message);
@@ -82,12 +82,14 @@ const Appointment = () => {
     }
   };
 
-  const handleNavigate = (screen: string) => {
-    router.push(screen as any);
+  const handleAppointmentClick = (appointment: any) => {
+    router.push(
+      `/appointment/appointment-details?appointmentId=${appointment.id}&appointmentType=${appointment.type}` as any
+    );
   };
 
-  const handleAppointmentClick = (appointmentId: string) => {
-    router.push(`/appointment/details?appointmentId=${appointmentId}` as any);
+  const handleNavigate = (screen: string) => {
+    router.push(screen as any);
   };
 
   const handleSeeAllAppointments = () => {
@@ -131,7 +133,7 @@ const Appointment = () => {
             <TouchableOpacity
               key={index}
               style={styles.appointmentCard}
-              onPress={() => handleAppointmentClick(appointment.id)}
+              onPress={() => handleAppointmentClick(appointment)}
             >
               <View style={styles.appointmentContent}>
                 <View style={styles.appointmentInfo}>
@@ -155,82 +157,81 @@ const Appointment = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FAFAFA',
+    backgroundColor: '#F8F9FA', // Subtle off-white background for the overall layout
   },
   scrollContainer: {
-    padding: 15,
-    paddingBottom: 100,
+    padding: 20,
+    paddingBottom: 100, // Space for scrolling
   },
   headerContainer: {
-    paddingTop: 20,
-    marginBottom: 20,
+    marginBottom: 25,
   },
   title: {
-    fontSize: 26,
-    fontWeight: 'bold',
-    color: '#333',
+    fontSize: 28, // Larger title for emphasis
+    fontWeight: '700',
+    color: '#2C3E50', // Dark navy for the main title
   },
   description: {
-    fontSize: 14,
-    color: '#545454',
-    marginTop: 5,
+    fontSize: 16,
+    color: '#4A5568', // Muted gray for secondary text
+    marginTop: 8,
   },
   servicesGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
+    marginTop: 10,
   },
   serviceTile: {
     width: '30%',
-    backgroundColor: '#FFF',
+    backgroundColor: '#FFF', // Light gray-blue for the tiles
     borderRadius: 10,
     padding: 15,
     alignItems: 'center',
     marginBottom: 15,
-    elevation: 2,
   },
   serviceLabel: {
-    marginTop: 10,
+    marginTop: 8,
     fontSize: 14,
-    fontWeight: '400',
-    color: '#333',
+    fontWeight: '500',
+    color: '#2C3E50', // Dark navy for text inside tiles
     textAlign: 'center',
   },
   divider: {
     height: 1,
-    backgroundColor: '#E0E0E0',
-    marginVertical: 5,
+    backgroundColor: '#CBD5E0', // Subtle divider color
+    marginVertical: 20,
   },
   appointmentsSection: {
-    marginTop: 10,
+    marginTop: 15,
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 15,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#2C3E50',
   },
   seeAllText: {
     fontSize: 14,
-    color: '#6A5D43',
-    fontWeight: 'bold',
+    color: '#3182CE', // Light blue for the "See All" button
+    fontWeight: '600',
   },
   noAppointmentsText: {
     fontSize: 16,
-    color: '#666',
+    color: '#718096',
     textAlign: 'center',
     marginTop: 20,
   },
   appointmentCard: {
-    backgroundColor: '#FFF',
+    backgroundColor: '#E6F4F1', // Light greenish-blue for the cards
     padding: 15,
     borderRadius: 10,
-    marginBottom: 10,
+    marginBottom: 15,
   },
   appointmentContent: {
     flexDirection: 'row',
@@ -241,20 +242,21 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   appointmentType: {
-    fontSize: 14,
-    color: '#666',
-    fontWeight: 'bold',
+    fontSize: 16,
+    color: '#2C3E50',
+    fontWeight: '600',
     marginBottom: 5,
   },
   appointmentDate: {
     fontSize: 14,
-    color: '#666',
+    color: '#4A5568',
   },
   appointmentStatus: {
     fontSize: 14,
-    color: '#333',
-    fontWeight: 'bold',
+    color: '#6A5D43', // Neutral warm brown for status
+    fontWeight: '600',
   },
 });
+
 
 export default Appointment;

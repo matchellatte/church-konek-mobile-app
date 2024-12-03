@@ -1,15 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  SafeAreaView, 
-  View, 
-  Text, 
-  StyleSheet, 
-  TextInput, 
-  TouchableOpacity, 
-  ScrollView, 
-  Alert 
+import {
+  SafeAreaView,
+  View,
+  Text,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  ScrollView,
+  Alert,
 } from 'react-native';
 import { Calendar } from 'react-native-calendars';
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { supabase } from '../../backend/lib/supabase';
 
@@ -20,23 +21,22 @@ const FirstCommunionForm: React.FC = () => {
   const [guardianName, setGuardianName] = useState('');
   const [contactNumber, setContactNumber] = useState('');
   const [selectedDate, setSelectedDate] = useState('');
-  const [availableDates, setAvailableDates] = useState<string[]>([]);
+  const [eventDates, setEventDates] = useState<string[]>([]);
 
   useEffect(() => {
-    fetchAvailableDates();
+    fetchEventDates();
   }, []);
 
-  const fetchAvailableDates = async () => {
+  const fetchEventDates = async () => {
     const { data, error } = await supabase
-      .from('appointments')
-      .select('appointment_date')
-      .eq('status', 'Available');
-      
+      .from('event') // Replace 'appointments' with the correct table name
+      .select('event_date');
+
     if (error) {
-      console.log('Error fetching available dates:', error);
+      console.error('Error fetching event dates:', error);
     } else {
-      const dates = data.map((item: any) => item.appointment_date);
-      setAvailableDates(dates);
+      const dates = data.map((item: any) => item.event_date.split('T')[0]); // Extract date part only
+      setEventDates(dates);
     }
   };
 
@@ -45,33 +45,33 @@ const FirstCommunionForm: React.FC = () => {
       Alert.alert('Validation Error', 'Please fill out all fields and choose a date.');
       return;
     }
-  
+
     try {
       // Get the current user's ID
       const { data: userResponse, error: userError } = await supabase.auth.getUser();
       const userId = userResponse?.user?.id;
-  
+
       if (userError || !userId) {
         console.error('Error fetching user ID:', userError);
         Alert.alert('Error', 'Failed to retrieve user information. Please try again.');
         return;
       }
-  
+
       // Fetch the service ID for "First Communion"
       const { data: serviceData, error: serviceError } = await supabase
         .from('services')
         .select('service_id')
         .eq('name', 'First Communion')
         .single();
-      
+
       if (serviceError || !serviceData) {
         console.error('Error fetching service ID:', serviceError);
         Alert.alert('Error', 'Failed to fetch the service ID. Please try again.');
         return;
       }
-      
+
       const serviceId = serviceData.service_id;
-  
+
       // Step 1: Create an Appointment with the user_id included
       const { data: appointmentData, error: appointmentError } = await supabase
         .from('appointments')
@@ -81,19 +81,19 @@ const FirstCommunionForm: React.FC = () => {
             service_id: serviceId,
             appointment_date: selectedDate,
             status: 'pending', // Initial status
-          }
+          },
         ])
         .select('appointment_id')
         .single();
-  
+
       if (appointmentError || !appointmentData) {
         console.error('Error creating appointment:', appointmentError);
         Alert.alert('Error', 'Failed to create an appointment. Please try again.');
         return;
       }
-  
+
       const appointmentId = appointmentData.appointment_id;
-  
+
       // Step 2: Insert into firstcommunionforms table with the generated appointment_id
       const { error: formError } = await supabase.from('firstcommunionforms').insert([
         {
@@ -106,7 +106,7 @@ const FirstCommunionForm: React.FC = () => {
           status: 'pending', // Initial status
         },
       ]);
-  
+
       if (formError) {
         console.error('Form submission error:', formError);
         Alert.alert('Booking Failed', 'An error occurred. Please try again.');
@@ -119,13 +119,18 @@ const FirstCommunionForm: React.FC = () => {
       Alert.alert('Error', 'An unexpected error occurred. Please try again.');
     }
   };
-  
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.title}>First Communion Form</Text>
+      {/* Custom Navbar */}
+      <View style={styles.navbar}>
+        <TouchableOpacity onPress={() => router.back()}>
+          <Ionicons name="chevron-back-outline" size={30} color="#333" />
+        </TouchableOpacity>
+        <Text style={styles.navTitle}>First Communion Form</Text>
+      </View>
 
+      <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.section}>
           <Text style={styles.label}>Child's Full Name:</Text>
           <TextInput
@@ -167,8 +172,11 @@ const FirstCommunionForm: React.FC = () => {
             onDayPress={(day: { dateString: string }) => setSelectedDate(day.dateString)}
             markedDates={{
               [selectedDate]: { selected: true, selectedColor: '#C69C6D' },
-              ...availableDates.reduce(
-                (acc, date) => ({ ...acc, [date]: { disabled: true, disableTouchEvent: true, dotColor: 'red' } }),
+              ...eventDates.reduce(
+                (acc, date) => ({
+                  ...acc,
+                  [date]: { disabled: true, disableTouchEvent: true, dotColor: 'red' },
+                }),
                 {}
               ),
             }}
@@ -188,15 +196,22 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F8F8F8',
   },
+  navbar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 15,
+    paddingVertical: 20,
+    backgroundColor: '#fff',
+  },
+  navTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#333',
+    marginLeft: 10,
+  },
   scrollContent: {
     padding: 20,
     paddingBottom: 50,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 20,
   },
   section: {
     backgroundColor: '#fff',

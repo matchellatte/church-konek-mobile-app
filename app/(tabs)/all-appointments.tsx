@@ -61,7 +61,7 @@ const AllAppointments = () => {
 
   const handleAppointmentClick = (appointment: any) => {
     router.push(
-      `/appointment/details?appointmentId=${appointment.id}&appointmentType=${appointment.type}` as any
+      `/appointment/appointment-details?appointmentId=${appointment.id}&appointmentType=${appointment.type}` as any
     );
   };
 
@@ -127,7 +127,7 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   appointmentCard: {
-    backgroundColor: '#FFF',
+    backgroundColor: '#E6F4F1',
     padding: 15,
     borderRadius: 10,
     marginBottom: 10,

@@ -18,6 +18,14 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
+      "newArchEnabled": true,
+      "permissions": [
+        "ACCESS_NETWORK_STATE", 
+        "INTERNET",
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
+      ],
       "supportsTablet": true,
       "infoPlist": {
         "NSCameraUsageDescription": "This app needs access to your camera to update your profile picture.",
@@ -26,7 +34,10 @@
       }
     },
     "android": {
+      "newArchEnabled": true,
       "permissions": [
+        "ACCESS_NETWORK_STATE", 
+        "INTERNET",
         "CAMERA",
         "READ_EXTERNAL_STORAGE",
         "WRITE_EXTERNAL_STORAGE"

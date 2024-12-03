@@ -1,17 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  SafeAreaView, 
-  View, 
-  Text, 
-  StyleSheet, 
-  TextInput, 
-  TouchableOpacity, 
-  ScrollView, 
-  Alert 
+import {
+  SafeAreaView,
+  View,
+  Text,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  ScrollView,
+  Alert,
 } from 'react-native';
-import { Calendar } from 'react-native-calendars'; 
+import { Calendar } from 'react-native-calendars';
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { supabase } from '../../backend/lib/supabase'; 
+import { supabase } from '../../backend/lib/supabase';
 
 const WeddingForm: React.FC = () => {
   const router = useRouter();
@@ -25,54 +26,46 @@ const WeddingForm: React.FC = () => {
     fetchEventDates();
   }, []);
 
-  // Fetch event dates from the event table
   const fetchEventDates = async () => {
     const { data, error } = await supabase
       .from('event')
       .select('event_date');
 
     if (error) {
-      console.log('Error fetching event dates:', error);
+      console.error('Error fetching event dates:', error);
     } else {
-      const dates = data.map((item: any) => item.event_date.split('T')[0]); // Extract date part only
+      const dates = data.map((item: any) => item.event_date.split('T')[0]);
       setEventDates(dates);
     }
   };
 
-  // Book the appointment and insert data into the WeddingForms table
   const handleAppointmentBooking = async () => {
     if (!brideName || !groomName || !contactNumber || !selectedDate) {
-      Alert.alert('Please fill out all fields and choose a wedding date.');
+      Alert.alert('Validation Error', 'Please fill out all fields and choose a wedding date.');
       return;
     }
-  
+
     try {
-      // Fetch the current user's ID
       const userResponse = await supabase.auth.getUser();
       const userId = userResponse.data?.user?.id;
       if (!userId) {
         Alert.alert('Error', 'User is not authenticated.');
         return;
       }
-      console.log('User ID:', userId);
-  
-      // Fetch the service ID for "Wedding"
+
       const { data: serviceData, error: serviceError } = await supabase
         .from('services')
         .select('service_id')
         .eq('name', 'Wedding')
         .single();
-  
+
       if (serviceError || !serviceData) {
-        console.error('Error fetching service ID:', serviceError);
         Alert.alert('Error', 'Failed to fetch the service ID for Wedding. Please try again.');
         return;
       }
-  
+
       const serviceId = serviceData.service_id;
-      console.log('Service ID:', serviceId);
-  
-      // Step 1: Create an Appointment
+
       const { data: appointmentData, error: appointmentError } = await supabase
         .from('appointments')
         .insert([
@@ -81,22 +74,19 @@ const WeddingForm: React.FC = () => {
             service_id: serviceId,
             appointment_date: selectedDate,
             status: 'pending',
-          }
+          },
         ])
         .select('appointment_id')
-        .single(); // Get the generated appointment_id
-  
+        .single();
+
       if (appointmentError || !appointmentData) {
-        console.error('Error creating appointment:', appointmentError);
         Alert.alert('Error', 'Failed to create an appointment. Please try again.');
         return;
       }
-  
+
       const appointmentId = appointmentData.appointment_id;
-      console.log('Appointment ID:', appointmentId);
-  
-      // Step 2: Insert into WeddingForms table with the generated appointment_id
-      const { data: weddingFormData, error: formError } = await supabase.from('weddingforms').insert([
+
+      const { error: formError } = await supabase.from('weddingforms').insert([
         {
           bride_name: brideName,
           groom_name: groomName,
@@ -105,30 +95,29 @@ const WeddingForm: React.FC = () => {
           appointment_id: appointmentId,
         },
       ]);
-  
+
       if (formError) {
-        console.error('Form submission error:', formError); // Log detailed error for debugging
         Alert.alert('Error', 'Failed to book wedding appointment. Please try again.');
       } else {
-        console.log('Wedding form submitted successfully:', weddingFormData);
         Alert.alert('Success', 'Wedding appointment booked successfully.');
         router.back();
       }
     } catch (error) {
-      console.error('Unexpected error booking appointment:', error);
       Alert.alert('Error', 'An unexpected error occurred. Please try again.');
     }
   };
-  
-  
-  
-  
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.title}>Wedding Form</Text>
+      {/* Custom Navbar */}
+      <View style={styles.navbar}>
+        <TouchableOpacity onPress={() => router.back()}>
+          <Ionicons name="chevron-back-outline" size={30} color="#333" />
+        </TouchableOpacity>
+        <Text style={styles.navTitle}>Wedding Form</Text>
+      </View>
 
+      <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* Personal Details Section */}
         <View style={styles.section}>
           <Text style={styles.label}>Bride's Full Name:</Text>
@@ -165,7 +154,10 @@ const WeddingForm: React.FC = () => {
             markedDates={{
               [selectedDate]: { selected: true, selectedColor: '#C69C6D' },
               ...eventDates.reduce(
-                (acc, date) => ({ ...acc, [date]: { disabled: true, disableTouchEvent: true, dotColor: 'red' } }),
+                (acc, date) => ({
+                  ...acc,
+                  [date]: { disabled: true, disableTouchEvent: true, dotColor: 'red' },
+                }),
                 {}
               ),
             }}
@@ -186,15 +178,22 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F8F8F8',
   },
+  navbar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 15,
+    paddingVertical: 20,
+    backgroundColor: '#fff',
+  },
+  navTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#333',
+    marginLeft: 10,
+  },
   scrollContent: {
     padding: 20,
     paddingBottom: 50,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 20,
   },
   section: {
     backgroundColor: '#fff',

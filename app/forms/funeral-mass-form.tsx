@@ -1,15 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  SafeAreaView, 
-  View, 
-  Text, 
-  StyleSheet, 
-  TextInput, 
-  TouchableOpacity, 
-  ScrollView, 
-  Alert 
+import {
+  SafeAreaView,
+  View,
+  Text,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  ScrollView,
+  Alert,
 } from 'react-native';
-import { Calendar } from 'react-native-calendars'; 
+import { Calendar } from 'react-native-calendars';
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { supabase } from '../../backend/lib/supabase';
 
@@ -19,29 +20,28 @@ const FuneralMassForm: React.FC = () => {
   const [guardianName, setGuardianName] = useState('');
   const [contactNumber, setContactNumber] = useState('');
   const [selectedDate, setSelectedDate] = useState('');
-  const [availableDates, setAvailableDates] = useState<string[]>([]);
+  const [eventDates, setEventDates] = useState<string[]>([]);
 
   useEffect(() => {
-    fetchAvailableDates();
+    fetchEventDates();
   }, []);
 
-  const fetchAvailableDates = async () => {
+  const fetchEventDates = async () => {
     const { data, error } = await supabase
-      .from('appointments')
-      .select('appointment_date')
-      .eq('status', 'available');
-      
+      .from('event') // Fetch from the event table
+      .select('event_date');
+
     if (error) {
-      console.log('Error fetching available dates:', error);
+      console.error('Error fetching event dates:', error);
     } else {
-      const dates = data.map((item: any) => item.appointment_date);
-      setAvailableDates(dates);
+      const dates = data.map((item: any) => item.event_date.split('T')[0]); // Extract date part only
+      setEventDates(dates);
     }
   };
 
   const handleAppointmentBooking = async () => {
     if (!deceasedName || !guardianName || !contactNumber || !selectedDate) {
-      Alert.alert('Please fill out all fields and choose a funeral mass date.');
+      Alert.alert('Validation Error', 'Please fill out all fields and choose a funeral mass date.');
       return;
     }
 
@@ -53,29 +53,39 @@ const FuneralMassForm: React.FC = () => {
         return;
       }
 
-      // Step 1: Create an Appointment
+      const { data: serviceData, error: serviceError } = await supabase
+        .from('services')
+        .select('service_id')
+        .eq('name', 'Funeral Mass')
+        .single();
+
+      if (serviceError || !serviceData) {
+        Alert.alert('Error', 'Failed to fetch the service ID for Funeral Mass. Please try again.');
+        return;
+      }
+
+      const serviceId = serviceData.service_id;
+
       const { data: appointmentData, error: appointmentError } = await supabase
         .from('appointments')
         .insert([
           {
             user_id: userId,
-            service_id: (await supabase.from('services').select('service_id').eq('name', 'Funeral Mass').single()).data?.service_id,
+            service_id: serviceId,
             appointment_date: selectedDate,
-            status: 'pending'
-          }
+            status: 'pending',
+          },
         ])
         .select('appointment_id')
         .single();
 
       if (appointmentError || !appointmentData) {
-        console.error('Error creating appointment:', appointmentError);
         Alert.alert('Error', 'Failed to create an appointment. Please try again.');
         return;
       }
 
       const appointmentId = appointmentData.appointment_id;
 
-      // Step 2: Insert into FuneralMassForms table with the generated appointment_id
       const { error: formError } = await supabase.from('funeralmassforms').insert([
         {
           deceased_name: deceasedName,
@@ -87,23 +97,27 @@ const FuneralMassForm: React.FC = () => {
       ]);
 
       if (formError) {
-        console.error('Form submission error:', formError);
         Alert.alert('Error', 'Failed to book funeral mass appointment. Please try again.');
       } else {
         Alert.alert('Success', 'Funeral mass appointment booked successfully.');
         router.back();
       }
     } catch (error) {
-      console.error('Unexpected error booking appointment:', error);
       Alert.alert('Error', 'An unexpected error occurred. Please try again.');
     }
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.title}>Funeral Mass Form</Text>
+      {/* Custom Navbar */}
+      <View style={styles.navbar}>
+        <TouchableOpacity onPress={() => router.back()}>
+          <Ionicons name="chevron-back-outline" size={30} color="#333" />
+        </TouchableOpacity>
+        <Text style={styles.navTitle}>Funeral Mass Form</Text>
+      </View>
 
+      <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* Personal Details Section */}
         <View style={styles.section}>
           <Text style={styles.label}>Deceased's Name:</Text>
@@ -139,8 +153,11 @@ const FuneralMassForm: React.FC = () => {
             onDayPress={(day: { dateString: string }) => setSelectedDate(day.dateString)}
             markedDates={{
               [selectedDate]: { selected: true, selectedColor: '#C69C6D' },
-              ...availableDates.reduce(
-                (acc, date) => ({ ...acc, [date]: { marked: true, dotColor: '#C69C6D' } }),
+              ...eventDates.reduce(
+                (acc, date) => ({
+                  ...acc,
+                  [date]: { disabled: true, disableTouchEvent: true, dotColor: 'red' },
+                }),
                 {}
               ),
             }}
@@ -161,15 +178,22 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F8F8F8',
   },
+  navbar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 15,
+    paddingVertical: 20,
+    backgroundColor: '#fff',
+  },
+  navTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#333',
+    marginLeft: 10,
+  },
   scrollContent: {
     padding: 20,
     paddingBottom: 50,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 20,
   },
   section: {
     backgroundColor: '#fff',

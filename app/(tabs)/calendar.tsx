@@ -1,153 +1,102 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  SafeAreaView, 
-  TouchableOpacity, 
-  ScrollView, 
-  Alert 
-} from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { SafeAreaView, StyleSheet, View, Text, FlatList } from 'react-native';
 import { Calendar } from 'react-native-calendars';
-import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../backend/lib/supabase';
 
-interface ChurchEvent {
-  id: number;
+interface Event {
+  id: string; // UUID from Supabase
   title: string;
-  date: string;
   description: string;
+  event_date: string; // Timestamp format
 }
 
-interface MarkedDates {
-  [key: string]: {
-    marked: boolean;
-    dotColor: string;
-    selected?: boolean;
-    selectedColor?: string;
-  };
-}
-
-const CalendarScreen = () => {
-  const [currentDate, setCurrentDate] = useState(new Date());
-  const [selectedDay, setSelectedDay] = useState('');
-  const [markedDates, setMarkedDates] = useState<MarkedDates>({});
-  const [churchEvents, setChurchEvents] = useState<{ [key: string]: ChurchEvent[] }>({});
-
-  const formatDate = (date: Date) => date.toISOString().split('T')[0];
-
-  const fetchChurchEvents = async () => {
-    const { data, error } = await supabase
-      .from('event') // Ensure table name matches your database
-      .select('event_id, title, event_date, description')
-      .order('event_date', { ascending: true });
-  
-    if (error) {
-      console.error('Error fetching church events:', error);
-      Alert.alert('Error', 'Failed to fetch church events');
-      return;
-    }
-  
-    console.log("Fetched Events:", data); // Log fetched data for debugging
-  
-    // Group events by date (extracting only the date component from event_date)
-    const eventsByDate: { [key: string]: ChurchEvent[] } = {};
-    data.forEach((event: any) => {
-      const eventDate = event.event_date.split('T')[0]; // Extract only the date part
-      if (!eventsByDate[eventDate]) {
-        eventsByDate[eventDate] = [];
-      }
-      eventsByDate[eventDate].push({
-        id: event.event_id,
-        title: event.title,
-        date: eventDate,
-        description: event.description,
-      });
-    });
-  
-    console.log("Grouped Events by Date:", eventsByDate); // Log events by date for debugging
-  
-    // Mark the dates with events
-    const marked: MarkedDates = {};
-    Object.keys(eventsByDate).forEach((date) => {
-      marked[date] = { marked: true, dotColor: '#C69C6D' };
-    });
-  
-    console.log("Marked Dates:", marked); // Log marked dates for debugging
-  
-    setChurchEvents(eventsByDate);
-    setMarkedDates(marked);
-  };
-  
+const ChurchCalendar = () => {
+  const [events, setEvents] = useState<Event[]>([]);
+  const [markedDates, setMarkedDates] = useState<{ [key: string]: { marked: boolean; dotColor?: string } }>({});
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [selectedEvents, setSelectedEvents] = useState<Event[]>([]);
 
   useEffect(() => {
-    fetchChurchEvents();
+    fetchEvents();
   }, []);
 
-  const handleDayPress = (day: { dateString: string }) => {
-    setSelectedDay(day.dateString);
+  const fetchEvents = async () => {
+    const { data, error } = await supabase
+      .from('event')
+      .select('event_id, title, description, event_date');
+
+    if (error) {
+      console.error('Error fetching events:', error);
+      return;
+    }
+
+    const formattedEvents = data.map((item: any) => ({
+      id: item.event_id,
+      title: item.title,
+      description: item.description,
+      event_date: item.event_date.split('T')[0], // Extract only the date part
+    }));
+
+    setEvents(formattedEvents);
+
+    // Generate marked dates for the calendar
+    const markedDatesObject = formattedEvents.reduce((acc, event) => {
+      acc[event.event_date] = { marked: true, dotColor: '#6A5D43' }; // Customize dot color
+      return acc;
+    }, {} as { [key: string]: { marked: boolean; dotColor?: string } });
+
+    setMarkedDates(markedDatesObject);
   };
 
-  const changeMonth = (direction: 'next' | 'prev') => {
-    let newMonth = new Date(currentDate);
-    newMonth.setMonth(newMonth.getMonth() + (direction === 'next' ? 1 : -1));
-    setCurrentDate(newMonth);
+  const handleDayPress = (day: { dateString: string }) => {
+    setSelectedDate(day.dateString);
+    const filteredEvents = events.filter((event) => event.event_date === day.dateString);
+    setSelectedEvents(filteredEvents);
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContainer}>
-        {/* Header Section */}
-        <View style={styles.headerContainer}>
-          <Text style={styles.title}>Church Calendar</Text>
-        </View>
-
-        {/* Month Navigation */}
-        <View style={styles.monthNavigation}>
-          <TouchableOpacity onPress={() => changeMonth('prev')}>
-            <Ionicons name="chevron-back-outline" size={24} color="#6A5D43" />
-          </TouchableOpacity>
-          <Text style={styles.monthText}>
-            {currentDate.toLocaleString('default', { month: 'long', year: 'numeric' })}
+      <Text style={styles.headerText}>Church Calendar</Text>
+      <Calendar
+        markedDates={{
+          ...markedDates,
+          ...(selectedDate && { [selectedDate]: { selected: true, selectedColor: '#6A5D43' } }),
+        }}
+        onDayPress={handleDayPress}
+        theme={{
+          selectedDayBackgroundColor: '#6A5D43',
+          todayTextColor: '#C69C6D',
+          arrowColor: '#6A5D43',
+          textDayFontWeight: '600',
+          textMonthFontWeight: 'bold',
+          textDayHeaderFontWeight: '600',
+          textSectionTitleColor: '#6A5D43',
+          calendarBackground: '#F7FAFC',
+          dayTextColor: '#2C3E50',
+        }}
+        style={styles.calendar}
+      />
+      <View style={styles.eventsContainer}>
+        {selectedEvents.length > 0 ? (
+          <>
+            <Text style={styles.eventListTitle}>Events on {selectedDate}:</Text>
+            <FlatList
+              data={selectedEvents}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => (
+                <View style={styles.eventCard}>
+                  <Text style={styles.eventTitle}>{item.title}</Text>
+                  <Text style={styles.eventDescription}>{item.description}</Text>
+                </View>
+              )}
+            />
+          </>
+        ) : (
+          <Text style={styles.noEventsText}>
+            {selectedDate ? `No events on ${selectedDate}` : 'Select a date to see events.'}
           </Text>
-          <TouchableOpacity onPress={() => changeMonth('next')}>
-            <Ionicons name="chevron-forward-outline" size={24} color="#6A5D43" />
-          </TouchableOpacity>
-        </View>
-
-        {/* Calendar Component */}
-        <View style={styles.calendarContainer}>
-          <Calendar
-            key={currentDate.toString()}
-            current={formatDate(currentDate)}
-            markedDates={{
-              ...markedDates,
-              [selectedDay]: { selected: true, selectedColor: '#C69C6D' },
-            }}
-            onDayPress={handleDayPress}
-            hideArrows={true}
-            hideExtraDays={true}
-            disableMonthChange={true}
-          />
-        </View>
-
-        {/* Event Details */}
-        <ScrollView contentContainerStyle={styles.detailsContainer}>
-          <Text style={styles.detailsTitle}>
-            {selectedDay ? `Events on ${selectedDay}` : 'Select a date to view events'}
-          </Text>
-          {churchEvents[selectedDay]?.length > 0 ? (
-            churchEvents[selectedDay].map((event, index) => (
-              <View key={index} style={styles.eventCard}>
-                <Text style={styles.eventText}>{event.title}</Text>
-                <Text style={styles.eventDescription}>{event.description}</Text>
-              </View>
-            ))
-          ) : (
-            <Text style={styles.noEventsText}>No events on this date.</Text>
-          )}
-        </ScrollView>
-      </ScrollView>
+        )}
+      </View>
     </SafeAreaView>
   );
 };
@@ -155,70 +104,62 @@ const CalendarScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FAFAFA',
-  },
-  scrollContainer: {
-    padding: 15,
-    paddingBottom: 100,
-  },
-  headerContainer: {
-    paddingTop: 20,
-    marginBottom: 10,
-  },
-  title: {
-    fontSize: 26,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  monthNavigation: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
     backgroundColor: '#F8F8F8',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
+    padding: 15,
   },
-  monthText: {
-    fontSize: 20,
+  headerText: {
+    fontSize: 22,
     fontWeight: 'bold',
-    color: '#6A5D43',
+    marginBottom: 15,
+    color: '#2C3E50',
+    textAlign: 'center',
   },
-  calendarContainer: {
-    padding: 10,
+  calendar: {
+    borderRadius: 10,
+    overflow: 'hidden',
+    elevation: 3,
+    marginBottom: 20,
   },
-  detailsContainer: {
-    paddingHorizontal: 20,
-    paddingVertical: 15,
+  eventsContainer: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    padding: 15,
+    elevation: 3,
   },
-  detailsTitle: {
+  eventListTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#6A5D43',
+    fontWeight: '600',
+    color: '#2C3E50',
     marginBottom: 10,
   },
   eventCard: {
     backgroundColor: '#FFF5EB',
     padding: 15,
     borderRadius: 10,
-    marginBottom: 10,
+    marginBottom: 15,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  eventText: {
+  eventTitle: {
     fontSize: 16,
-    color: '#333',
     fontWeight: 'bold',
+    color: '#6A5D43',
+    marginBottom: 5,
   },
   eventDescription: {
     fontSize: 14,
-    color: '#666',
+    color: '#4A5568',
   },
   noEventsText: {
     fontSize: 16,
-    color: '#999',
+    color: '#666',
     textAlign: 'center',
     marginTop: 20,
   },
 });
 
-export default CalendarScreen;
+export default ChurchCalendar;

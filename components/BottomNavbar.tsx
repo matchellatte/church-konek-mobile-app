@@ -1,65 +1,51 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useSegments } from 'expo-router';
 
 const BottomNavbar = () => {
   const router = useRouter();
   const segments = useSegments();
-  const activeTab = segments[0]; // Get the active tab based on the URL segments
 
-  const isAppointmentRelated = [
-    'appointment',
-    'baptism',
-    'wedding',
-    'prayerIntention',
-    'funeralMass',
-    'houseBlessing',
-    'requestCertificate',
-    'firstCommunion',
-    'kumpil',
-    'specialMass',
-  ].includes(activeTab);
+  // Fix for Home: Default to "/" when there are no meaningful segments
+  const activeTab = segments.length === 1 && segments[0] === '(tabs)' ? '/' : `/${segments[segments.length - 1]}`;
 
-  // Define a specific type for screen paths
-  const handleNavigate = (screen: '/' | '/appointment' | '/calendar' | '/profile') => {
-    router.push(screen); // Use `push` to navigate between screens in Expo Router
+  const handleNavigate = (screen: string) => {
+    if (activeTab !== screen) {
+      router.push(screen as any); // Navigate only if not already on the screen
+    }
   };
+
+  const tabs = [
+    { name: '/', label: 'Home', icon: 'home-outline' },
+    { name: '/appointment', label: 'Appointment', icon: 'add-circle-outline' },
+    { name: '/calendar', label: 'Calendar', icon: 'calendar-outline' },
+    { name: '/profile', label: 'Profile', icon: 'person-outline' },
+  ];
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.navbar}>
-        {[
-          { name: '/', label: 'Home', icon: 'home-outline' as keyof typeof Ionicons.glyphMap },
-          { name: '/appointment', label: 'Appointment', icon: 'add-circle-outline' as keyof typeof Ionicons.glyphMap },
-          { name: '/calendar', label: 'Calendar', icon: 'calendar-outline' as keyof typeof Ionicons.glyphMap },
-          { name: '/profile', label: 'Profile', icon: 'person-outline' as keyof typeof Ionicons.glyphMap },
-        ].map((tab) => (
-          <TouchableOpacity
-            key={tab.name}
-            style={styles.navItem}
-            onPress={() => handleNavigate(tab.name as '/' | '/appointment' | '/calendar' | '/profile')}
-          >
-            <Ionicons
-              name={tab.icon}
-              size={24}
-              color={
-                (tab.name === '/appointment' && isAppointmentRelated) || activeTab === tab.name
-                  ? '#6A5D43'
-                  : '#666'
-              }
-            />
-            <Text
-              style={[
-                styles.navText,
-                ((tab.name === '/appointment' && isAppointmentRelated) || activeTab === tab.name) &&
-                  styles.activeTab,
-              ]}
+        {tabs.map((tab) => {
+          const isActive = activeTab === tab.name;
+
+          return (
+            <TouchableOpacity
+              key={tab.name}
+              style={styles.navItem}
+              onPress={() => handleNavigate(tab.name)}
             >
-              {tab.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
+              <Ionicons
+                name={tab.icon as keyof typeof Ionicons.glyphMap}
+                size={26}
+                color={isActive ? '#D2691E' : '#4A5568'} // Active icon is orange-brown, inactive is dark gray
+              />
+              <Text style={[styles.navText, isActive ? styles.activeText : styles.inactiveText]}>
+                {tab.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
     </SafeAreaView>
   );
@@ -67,35 +53,31 @@ const BottomNavbar = () => {
 
 const styles = StyleSheet.create({
   safeArea: {
-    backgroundColor: '#f8f8f8',
+    backgroundColor: '#FFFFFF',
   },
   navbar: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
     flexDirection: 'row',
     justifyContent: 'space-around',
-    backgroundColor: '#f8f8f8',
-    paddingVertical: 15,
+    alignItems: 'center',
+    paddingVertical: 12,
+    backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
-    borderTopColor: '#ccc',
-    elevation: 10,
-    zIndex: 100, // Ensure it stays on top
-    paddingBottom: Platform.OS === 'ios' ? 30 : 20, // Extra padding for bottom insets
+    borderTopColor: '#E2E8F0',
+    elevation: 4,
   },
   navItem: {
     alignItems: 'center',
-    flex: 1,
   },
   navText: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 5,
+    fontSize: 12,
+    marginTop: 4,
+    fontWeight: '600',
   },
-  activeTab: {
-    fontWeight: 'bold',
-    color: '#6A5D43',
+  activeText: {
+    color: '#D2691E', // Solid orange-brown for active text
+  },
+  inactiveText: {
+    color: '#4A5568', // Darker color for inactive text
   },
 });
 

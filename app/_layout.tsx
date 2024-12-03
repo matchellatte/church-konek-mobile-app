@@ -47,10 +47,14 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider value={DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="auth/login" options={{ headerShown: false }} />
-        <Stack.Screen name="auth/signup" options={{ headerShown: false }} />
+      <Stack
+        screenOptions={{
+          headerShown: false, // Disable all headers globally
+        }}
+      >
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="auth/login" />
+        <Stack.Screen name="auth/signup" />
         <Stack.Screen name="+not-found" />
       </Stack>
     </ThemeProvider>

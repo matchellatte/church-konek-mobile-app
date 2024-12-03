@@ -1,15 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  SafeAreaView, 
-  View, 
-  Text, 
-  StyleSheet, 
-  TextInput, 
-  TouchableOpacity, 
-  ScrollView, 
-  Alert 
+import {
+  SafeAreaView,
+  View,
+  Text,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  ScrollView,
+  Alert,
 } from 'react-native';
 import { Calendar } from 'react-native-calendars';
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { supabase } from '../../backend/lib/supabase';
 
@@ -19,23 +20,29 @@ const SpecialMassForm: React.FC = () => {
   const [contactNumber, setContactNumber] = useState('');
   const [massType, setMassType] = useState('');
   const [selectedDate, setSelectedDate] = useState('');
-  const [availableDates, setAvailableDates] = useState<string[]>([]);
+  const [eventDates, setEventDates] = useState<string[]>([]);
 
   useEffect(() => {
-    fetchAvailableDates();
+    fetchEventDates();
   }, []);
 
-  const fetchAvailableDates = async () => {
-    const { data, error } = await supabase
-      .from('appointments')
-      .select('appointment_date')
-      .eq('status', 'Available');
-      
-    if (error) {
-      console.log('Error fetching available dates:', error);
-    } else {
-      const dates = data.map((item: any) => item.appointment_date);
-      setAvailableDates(dates);
+  const fetchEventDates = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('event') // Replace 'event' with your actual table name
+        .select('event_date');
+
+      if (error) {
+        console.error('Error fetching event dates:', error);
+        Alert.alert('Error', 'Failed to fetch event dates. Please try again.');
+        return;
+      }
+
+      const dates = data.map((item: any) => item.event_date.split('T')[0]); // Extract only the date part
+      setEventDates(dates);
+    } catch (err) {
+      console.error('Unexpected error:', err);
+      Alert.alert('Error', 'An unexpected error occurred while fetching dates.');
     }
   };
 
@@ -46,7 +53,6 @@ const SpecialMassForm: React.FC = () => {
     }
 
     try {
-      // Retrieve the current user's ID
       const { data: userResponse, error: userError } = await supabase.auth.getUser();
       const userId = userResponse?.user?.id;
 
@@ -56,7 +62,6 @@ const SpecialMassForm: React.FC = () => {
         return;
       }
 
-      // Fetch the service ID for "Special Mass"
       const { data: serviceData, error: serviceError } = await supabase
         .from('services')
         .select('service_id')
@@ -71,7 +76,6 @@ const SpecialMassForm: React.FC = () => {
 
       const serviceId = serviceData.service_id;
 
-      // Step 1: Create an Appointment with user_id
       const { data: appointmentData, error: appointmentError } = await supabase
         .from('appointments')
         .insert([
@@ -79,8 +83,8 @@ const SpecialMassForm: React.FC = () => {
             user_id: userId,
             service_id: serviceId,
             appointment_date: selectedDate,
-            status: 'pending', // Initial status
-          }
+            status: 'pending',
+          },
         ])
         .select('appointment_id')
         .single();
@@ -93,15 +97,14 @@ const SpecialMassForm: React.FC = () => {
 
       const appointmentId = appointmentData.appointment_id;
 
-      // Step 2: Insert into specialmassforms table with the generated appointment_id
       const { error: formError } = await supabase.from('specialmassforms').insert([
         {
           full_name: fullName,
           contact_number: contactNumber,
           mass_type: massType,
           special_mass_date: selectedDate,
-          appointment_id: appointmentId, // Link to the appointment
-          status: 'pending', // Initial status
+          appointment_id: appointmentId,
+          status: 'pending',
         },
       ]);
 
@@ -120,9 +123,14 @@ const SpecialMassForm: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.title}>Special Mass Form</Text>
+      <View style={styles.navbar}>
+        <TouchableOpacity onPress={() => router.back()}>
+          <Ionicons name="chevron-back-outline" size={30} color="#333" />
+        </TouchableOpacity>
+        <Text style={styles.navTitle}>Special Mass Form</Text>
+      </View>
 
+      <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.section}>
           <Text style={styles.label}>Full Name:</Text>
           <TextInput
@@ -156,8 +164,11 @@ const SpecialMassForm: React.FC = () => {
             onDayPress={(day: { dateString: string }) => setSelectedDate(day.dateString)}
             markedDates={{
               [selectedDate]: { selected: true, selectedColor: '#C69C6D' },
-              ...availableDates.reduce(
-                (acc, date) => ({ ...acc, [date]: { disabled: true, disableTouchEvent: true, dotColor: 'red' } }),
+              ...eventDates.reduce(
+                (acc, date) => ({
+                  ...acc,
+                  [date]: { disabled: true, disableTouchEvent: true, dotColor: 'red' },
+                }),
                 {}
               ),
             }}
@@ -177,15 +188,21 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F8F8F8',
   },
+  navbar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 15,
+    paddingVertical: 20,
+  },
+  navTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#333',
+    marginLeft: 10,
+  },
   scrollContent: {
     padding: 20,
     paddingBottom: 50,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 20,
   },
   section: {
     backgroundColor: '#fff',
