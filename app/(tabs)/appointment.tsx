@@ -1,28 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import {
-  SafeAreaView,
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  Alert,
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { SafeAreaView, ScrollView, StyleSheet, View, Text, Alert, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { supabase } from '../../backend/lib/supabase';
+import ServiceTile from '../../components/appointment-components/service-tile';
+import AppointmentCard from '../../components/appointment-components/appointment-card';
+import SectionHeader from '../../components/appointment-components/section-header';
 
 const services = [
-  { label: 'Wedding', icon: 'heart-outline', screen: '/appointment/wedding' },
-  { label: 'Baptism', icon: 'water-outline', screen: '/appointment/baptism' },
-  { label: 'Funeral Mass', icon: 'flower-outline', screen: '/appointment/funeral-mass' },
-  { label: 'House Blessing', icon: 'home-outline', screen: '/appointment/house-blessing' },
-  { label: 'First Communion', icon: 'book-outline', screen: '/appointment/first-communion' },
-  { label: 'Kumpil', icon: 'hand-left-outline', screen: '/appointment/kumpil' },
-  { label: 'Special Mass', icon: 'musical-note-outline', screen: '/appointment/special-mass' },
-  { label: 'Prayer Intention', icon: 'chatbox-ellipses-outline', screen: '/appointment/prayer-intention' },
-  { label: 'Church Donation', icon: 'cash-outline', screen: '/appointment/church-donation' },
+  { label: 'Wedding', icon: require('../../assets/icons/wedding_icon.png'), screen: '/appointment/wedding' },
+  { label: 'Baptism', icon: require('../../assets/icons/baptism_icon.png'), screen: '/appointment/baptism' },
+  { label: 'Kumpil', icon: require('../../assets/icons/kumpil_icon.png'), screen: '/appointment/kumpil' },
+  { label: 'Funeral Mass', icon: require('../../assets/icons/funeral_mass_icon.png'), screen: '/appointment/funeral-mass' },
+  { label: 'House Blessing', icon: require('../../assets/icons/house_blessing_icon.png'), screen: '/appointment/house-blessing' },
+  { label: 'First Communion', icon: require('../../assets/icons/first_communion_icon.png'), screen: '/appointment/first-communion' },
+  { label: 'Special Mass', icon: require('../../assets/icons/special_mass_icon.png'), screen: '/appointment/special-mass' },
+  { label: 'Prayer Intention', icon: require('../../assets/icons/prayer_intention_icon.png'), screen: '/appointment/prayer-intention' },
+  { label: 'Church Donation', icon: require('../../assets/icons/donation_icon.png'), screen: '/appointment/donation' },
 ];
+
 
 const Appointment = () => {
   const router = useRouter();
@@ -61,26 +56,35 @@ const Appointment = () => {
 
   const fetchAppointments = async () => {
     if (!userId) return;
-
+  
     const { data, error } = await supabase
       .from('appointments')
       .select('*, services(name)')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(3);
-
+  
     if (error) {
       Alert.alert('Error fetching appointments', error.message);
     } else {
-      const formattedAppointments = data.map((appointment: any) => ({
-        id: appointment.appointment_id,
-        type: appointment.services.name,
-        date: appointment.appointment_date,
-        status: appointment.status,
-      }));
+      const formattedAppointments = data.map((appointment: any) => {
+        const formattedDate = new Date(appointment.appointment_date)
+          .toLocaleDateString('en-US', {
+            month: '2-digit',
+            day: '2-digit',
+            year: 'numeric',
+          });
+        return {
+          id: appointment.appointment_id,
+          type: appointment.services.name,
+          date: formattedDate,
+          status: appointment.status,
+        };
+      });
       setAppointments(formattedAppointments);
     }
   };
+  
 
   const handleAppointmentClick = (appointment: any) => {
     router.push(
@@ -101,54 +105,44 @@ const Appointment = () => {
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <View style={styles.headerContainer}>
           <Text style={styles.title}>Book an Appointment</Text>
-          <Text style={styles.description}>
-            Select a service to schedule or view your appointments.
-          </Text>
+          <Text style={styles.description}>Select a service to schedule your appointments.</Text>
         </View>
 
         <View style={styles.servicesGrid}>
           {services.map((service, index) => (
-            <TouchableOpacity
+            <ServiceTile
               key={index}
-              style={styles.serviceTile}
-              onPress={() => handleNavigate(service.screen)}
-            >
-              <Ionicons name={service.icon as keyof typeof Ionicons.glyphMap} size={34} color="#333" />
-              <Text style={styles.serviceLabel}>{service.label}</Text>
-            </TouchableOpacity>
+              label={service.label}
+              icon={service.icon}
+              onPress={() => router.push(service.screen as any)}
+            />
           ))}
         </View>
 
         <View style={styles.divider} />
 
-        <View style={styles.appointmentsSection}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Appointments</Text>
-            <TouchableOpacity onPress={handleSeeAllAppointments}>
-              <Text style={styles.seeAllText}>See All</Text>
-            </TouchableOpacity>
-          </View>
+        <SectionHeader
+          title="Appointments"
+          onSeeAll={() => router.push('/all-appointments')}
+        />
 
-          {appointments.slice(0, 3).map((appointment, index) => (
-            <TouchableOpacity
-              key={index}
-              style={styles.appointmentCard}
-              onPress={() => handleAppointmentClick(appointment)}
-            >
-              <View style={styles.appointmentContent}>
-                <View style={styles.appointmentInfo}>
-                  <Text style={styles.appointmentType}>{appointment.type}</Text>
-                  <Text style={styles.appointmentDate}>{appointment.date}</Text>
-                </View>
-                <Text style={styles.appointmentStatus}>{appointment.status}</Text>
-              </View>
-            </TouchableOpacity>
-          ))}
+        {appointments.map((appointment, index) => (
+          <AppointmentCard
+            key={index}
+            type={appointment.type}
+            date={appointment.date}
+            status={appointment.status}
+            onPress={() =>
+              router.push(
+                `/appointment/appointment-details?appointmentId=${appointment.id}&appointmentType=${appointment.type}`
+              )
+            }
+          />
+        ))}
 
-          {appointments.length === 0 && (
-            <Text style={styles.noAppointmentsText}>No appointments yet</Text>
-          )}
-        </View>
+        {appointments.length === 0 && (
+          <Text style={styles.noAppointmentsText}>No appointments yet</Text>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -157,23 +151,37 @@ const Appointment = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FA', // Subtle off-white background for the overall layout
+    backgroundColor: '#F8F9FA',
   },
   scrollContainer: {
     padding: 20,
-    paddingBottom: 100, // Space for scrolling
+    paddingBottom: 100,
   },
   headerContainer: {
     marginBottom: 25,
   },
   title: {
-    fontSize: 28, // Larger title for emphasis
+    ...Platform.select({
+      ios: {
+          fontSize: 28,
+      },
+      android: {
+          fontSize: 22,
+      },
+  }),
     fontWeight: '700',
-    color: '#2C3E50', // Dark navy for the main title
+    color: '#4B3F3A',
   },
   description: {
-    fontSize: 16,
-    color: '#4A5568', // Muted gray for secondary text
+    ...Platform.select({
+      ios: {
+          fontSize: 16,
+      },
+      android: {
+          fontSize: 12,
+      },
+  }),
+    color: '#857F72',
     marginTop: 8,
   },
   servicesGrid: {
@@ -184,26 +192,31 @@ const styles = StyleSheet.create({
   },
   serviceTile: {
     width: '30%',
-    backgroundColor: '#FFF', // Light gray-blue for the tiles
+    height: 110,
+    backgroundColor: '#FFF',
     borderRadius: 10,
     padding: 15,
     alignItems: 'center',
     marginBottom: 15,
   },
+  serviceIcon: {
+    width: 40,
+    height: 40,
+  },
   serviceLabel: {
     marginTop: 8,
     fontSize: 14,
     fontWeight: '500',
-    color: '#2C3E50', // Dark navy for text inside tiles
+    color: '#4B3F3A',
     textAlign: 'center',
   },
   divider: {
     height: 1,
-    backgroundColor: '#CBD5E0', // Subtle divider color
-    marginVertical: 20,
+    backgroundColor: '#CBD5E0',
+    marginVertical: 15,
   },
   appointmentsSection: {
-    marginTop: 15,
+    marginTop: 0,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -214,11 +227,11 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#2C3E50',
+    color: '#4B3F3A',
   },
   seeAllText: {
     fontSize: 14,
-    color: '#3182CE', // Light blue for the "See All" button
+    color: '#8C6A5E',
     fontWeight: '600',
   },
   noAppointmentsText: {
@@ -228,35 +241,43 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   appointmentCard: {
-    backgroundColor: '#E6F4F1', // Light greenish-blue for the cards
+    backgroundColor: '#FFFFFF', // White card for better contrast
     padding: 15,
-    borderRadius: 10,
+    borderRadius: 12,
     marginBottom: 15,
-  },
-  appointmentContent: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: 'row', // Align content horizontally
     alignItems: 'center',
+  },
+  calendarIcon: {
+    backgroundColor: '#F9F5F0', // Beige tone for icon background
+    padding: 10,
+    borderRadius: 10,
+    marginRight: 15,
   },
   appointmentInfo: {
     flex: 1,
   },
   appointmentType: {
     fontSize: 16,
-    color: '#2C3E50',
+    color: '#5A4A3A', // Rich brown text
     fontWeight: '600',
-    marginBottom: 5,
+    marginBottom: 2,
   },
   appointmentDate: {
     fontSize: 14,
-    color: '#4A5568',
+    color: '#857F72', // Subtle gray-brown
   },
   appointmentStatus: {
-    fontSize: 14,
-    color: '#6A5D43', // Neutral warm brown for status
+    fontSize: 12,
+    color: '#FFFFFF',
     fontWeight: '600',
+    backgroundColor: '#A57A5A', // Beige-brown for badge
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    textAlign: 'center',
   },
+  
 });
-
 
 export default Appointment;

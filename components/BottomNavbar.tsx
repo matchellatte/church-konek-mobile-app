@@ -36,13 +36,14 @@ const BottomNavbar = () => {
               onPress={() => handleNavigate(tab.name)}
             >
               <Ionicons
-                name={tab.icon as keyof typeof Ionicons.glyphMap}
+                name={isActive ? (tab.icon.replace('-outline', '') as any) : tab.icon} // Switch to filled icon
                 size={26}
-                color={isActive ? '#D2691E' : '#4A5568'} // Active icon is orange-brown, inactive is dark gray
+                color={isActive ? '#8C5A37' : '#4A5568'} // Active rich brown, inactive dark gray
               />
               <Text style={[styles.navText, isActive ? styles.activeText : styles.inactiveText]}>
                 {tab.label}
               </Text>
+
             </TouchableOpacity>
           );
         })}
@@ -74,11 +75,13 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   activeText: {
-    color: '#D2691E', // Solid orange-brown for active text
+    color: '#8C5A37', // Rich brown for active text
+    fontWeight: 'bold', // Slightly bolder text
   },
   inactiveText: {
-    color: '#4A5568', // Darker color for inactive text
+    color: '#4A5568', // Subtle gray for inactive text
   },
+  
 });
 
 export default BottomNavbar;

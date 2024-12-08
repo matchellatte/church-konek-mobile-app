@@ -1,21 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import {
   SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Alert,
   View,
   Text,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
-  ScrollView,
-  Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
-import { Calendar } from 'react-native-calendars';
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
 import { supabase } from '../../backend/lib/supabase';
+import TopNavbar from '../../components/top-navbar';
+import CalendarDatePicker from '../../components/calendar-date-picker';
+import FormInputField from '../../components/form-input-field';
+import SubmitButton from '../../components/SubmitButton';
 
 const KumpilForm: React.FC = () => {
-  const router = useRouter();
   const [fullName, setFullName] = useState('');
   const [guardianName, setGuardianName] = useState('');
   const [contactNumber, setContactNumber] = useState('');
@@ -29,15 +29,14 @@ const KumpilForm: React.FC = () => {
   }, []);
 
   const fetchEventDates = async () => {
-    const { data, error } = await supabase
-      .from('event') // Replace 'appointments' with the appropriate table name
-      .select('event_date');
+    try {
+      const { data, error } = await supabase.from('event').select('event_date');
+      if (error) throw error;
 
-    if (error) {
-      console.error('Error fetching event dates:', error);
-    } else {
-      const dates = data.map((item: any) => item.event_date.split('T')[0]); // Extract date part only
+      const dates = data.map((item: any) => item.event_date.split('T')[0]);
       setEventDates(dates);
+    } catch (error) {
+      Alert.alert('Error', 'Failed to load unavailable dates. Please try again later.');
     }
   };
 
@@ -48,17 +47,14 @@ const KumpilForm: React.FC = () => {
     }
 
     try {
-      // Retrieve the current user's ID
       const { data: userResponse, error: userError } = await supabase.auth.getUser();
       const userId = userResponse?.user?.id;
 
       if (userError || !userId) {
-        console.error('Error fetching user ID:', userError);
         Alert.alert('Error', 'Failed to retrieve user information. Please try again.');
         return;
       }
 
-      // Fetch the service ID for "Kumpil"
       const { data: serviceData, error: serviceError } = await supabase
         .from('services')
         .select('service_id')
@@ -66,14 +62,12 @@ const KumpilForm: React.FC = () => {
         .single();
 
       if (serviceError || !serviceData) {
-        console.error('Error fetching service ID:', serviceError);
         Alert.alert('Error', 'Failed to fetch the service ID. Please try again.');
         return;
       }
 
       const serviceId = serviceData.service_id;
 
-      // Step 1: Create an Appointment with user_id
       const { data: appointmentData, error: appointmentError } = await supabase
         .from('appointments')
         .insert([
@@ -81,21 +75,19 @@ const KumpilForm: React.FC = () => {
             user_id: userId,
             service_id: serviceId,
             appointment_date: selectedDate,
-            status: 'pending', // Initial status
+            status: 'pending',
           },
         ])
         .select('appointment_id')
         .single();
 
       if (appointmentError || !appointmentData) {
-        console.error('Error creating appointment:', appointmentError);
         Alert.alert('Error', 'Failed to create an appointment. Please try again.');
         return;
       }
 
       const appointmentId = appointmentData.appointment_id;
 
-      // Step 2: Insert into kumpilforms table with the generated appointment_id
       const { error: formError } = await supabase.from('kumpilforms').insert([
         {
           full_name: fullName,
@@ -104,99 +96,82 @@ const KumpilForm: React.FC = () => {
           ninong_name: ninongName,
           ninang_name: ninangName,
           kumpil_date: selectedDate,
-          appointment_id: appointmentId, // Link to the appointment
-          status: 'pending', // Initial status
+          appointment_id: appointmentId,
+          status: 'pending',
         },
       ]);
 
       if (formError) {
-        console.error('Form submission error:', formError);
         Alert.alert('Booking Failed', 'An error occurred. Please try again.');
       } else {
         Alert.alert('Success', 'Kumpil appointment booked successfully.');
-        router.back();
       }
     } catch (error) {
-      console.error('Unexpected error during booking:', error);
       Alert.alert('Error', 'An unexpected error occurred. Please try again.');
     }
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Custom Navbar */}
-      <View style={styles.navbar}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="chevron-back-outline" size={30} color="#333" />
-        </TouchableOpacity>
-        <Text style={styles.navTitle}>Kumpil Form</Text>
-      </View>
-
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={styles.section}>
-          <Text style={styles.label}>Full Name:</Text>
-          <TextInput
-            style={styles.input}
-            value={fullName}
-            onChangeText={setFullName}
-            placeholder="Enter your full name"
+      <TopNavbar title="Kumpil Form" />
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.keyboardAvoidingView}
+      >
+        <ScrollView contentContainerStyle={styles.scrollContent}>
+          {/* Calendar Section */}
+          <CalendarDatePicker
+            selectedDate={selectedDate}
+            setSelectedDate={setSelectedDate}
+            eventDates={eventDates}
           />
 
-          <Text style={styles.label}>Guardian's Name:</Text>
-          <TextInput
-            style={styles.input}
-            value={guardianName}
-            onChangeText={setGuardianName}
-            placeholder="Enter guardian's name"
-          />
+          {/* Personal Details Section */}
+          <View style={styles.sectionContainer}>
+            <Text style={styles.sectionTitle}>Personal Details</Text>
 
-          <Text style={styles.label}>Contact Number:</Text>
-          <TextInput
-            style={styles.input}
-            value={contactNumber}
-            onChangeText={setContactNumber}
-            placeholder="Enter contact number"
-            keyboardType="phone-pad"
-          />
+            <FormInputField
+              label="Full Name"
+              placeholder="Enter your full name"
+              value={fullName}
+              onChangeText={setFullName}
+              required
+            />
+            <FormInputField
+              label="Guardian's Name"
+              placeholder="Enter guardian's name"
+              value={guardianName}
+              onChangeText={setGuardianName}
+              required
+            />
+            <FormInputField
+              label="Contact Number"
+              placeholder="Enter contact number"
+              value={contactNumber}
+              onChangeText={setContactNumber}
+              required
+              keyboardType="phone-pad"
+            />
+            <FormInputField
+              label="Ninong's Name"
+              placeholder="Enter Ninong's name"
+              value={ninongName}
+              onChangeText={setNinongName}
+              required
+            />
+            <FormInputField
+              label="Ninang's Name"
+              placeholder="Enter Ninang's name"
+              value={ninangName}
+              onChangeText={setNinangName}
+              required
+            />
+          </View>
 
-          <Text style={styles.label}>Ninong's Name:</Text>
-          <TextInput
-            style={styles.input}
-            value={ninongName}
-            onChangeText={setNinongName}
-            placeholder="Enter Ninong's name"
-          />
-
-          <Text style={styles.label}>Ninang's Name:</Text>
-          <TextInput
-            style={styles.input}
-            value={ninangName}
-            onChangeText={setNinangName}
-            placeholder="Enter Ninang's name"
-          />
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.label}>Choose a Date for Kumpil:</Text>
-          <Calendar
-            onDayPress={(day: { dateString: string }) => setSelectedDate(day.dateString)}
-            markedDates={{
-              [selectedDate]: { selected: true, selectedColor: '#C69C6D' },
-              ...eventDates.reduce(
-                (acc, date) => ({
-                  ...acc,
-                  [date]: { disabled: true, disableTouchEvent: true, dotColor: 'red' },
-                }),
-                {}
-              ),
-            }}
-          />
-        </View>
-
-        <TouchableOpacity style={styles.submitButton} onPress={handleAppointmentBooking}>
-          <Text style={styles.submitButtonText}>Book Kumpil Appointment</Text>
-        </TouchableOpacity>
-      </ScrollView>
+          {/* Book Appointment Button */}
+          <SubmitButton label="Book Kumpil Appointment" onPress={handleAppointmentBooking} />
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
@@ -206,54 +181,31 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F8F8F8',
   },
-  navbar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 15,
-    paddingVertical: 20,
-    backgroundColor: '#fff',
-  },
-  navTitle: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#333',
-    marginLeft: 10,
+  keyboardAvoidingView: {
+    flex: 1,
   },
   scrollContent: {
-    padding: 20,
+    padding: 15,
     paddingBottom: 50,
   },
-  section: {
-    backgroundColor: '#fff',
-    padding: 15,
+  sectionContainer: {
+    backgroundColor: '#FFFFFF',
     borderRadius: 10,
-    marginBottom: 15,
+    padding: 20,
+    marginBottom: 20,
   },
-  label: {
-    fontSize: 16,
+  sectionTitle: {
+    ...Platform.select({
+      ios: {
+        fontSize: 20,
+      },
+      android: {
+        fontSize: 15,
+      },
+    }),
     fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 8,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 10,
-    fontSize: 16,
+    color: '#4B3F3A',
     marginBottom: 15,
-    backgroundColor: '#F9F9F9',
-  },
-  submitButton: {
-    backgroundColor: '#6A5D43',
-    paddingVertical: 15,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  submitButtonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
   },
 });
 

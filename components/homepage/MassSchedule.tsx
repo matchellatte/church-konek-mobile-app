@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient'; // Ensure to install expo-linear-gradient
 
 interface MassSchedule {
@@ -28,7 +28,7 @@ const MassSchedule: React.FC<MassScheduleProps> = ({ schedule }) => (
         return (
           <View key={item.id} style={styles.scheduleRow}>
             <LinearGradient
-              colors={['#2C3E50', '#34495E']}
+              colors={['#8C6A5E', '#E0C7B1']} // Gradient from warm brown to beige
               style={styles.accentBar}
             />
             <View style={styles.rowContent}>
@@ -44,16 +44,22 @@ const MassSchedule: React.FC<MassScheduleProps> = ({ schedule }) => (
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFFFFF', 
     borderRadius: 15,
     padding: 20,
     marginBottom: 20,
-
   },
   title: {
-    fontSize: 18,
+    ...Platform.select({
+      ios: {
+        fontSize: 18,
+      },
+      android: {
+        fontSize: 15,
+      },
+    }),
     fontWeight: 'bold',
-    color: '#2C3E50',
+    color: '#4B3F3A', 
     marginBottom: 15,
     textAlign: 'center',
   },
@@ -70,25 +76,47 @@ const styles = StyleSheet.create({
     height: '100%',
     borderRadius: 5,
     marginRight: 15,
+    backgroundColor: '#4B3F3A', 
   },
   rowContent: {
+    ...Platform.select({
+      ios: {
+        paddingVertical: 10,
+      },
+      android: {
+        paddingVertical: 7,
+      },
+    }),
     flex: 1,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    borderBottomColor: '#EDE0D4',
   },
   dayText: {
-    fontSize: 16,
+    ...Platform.select({
+      ios: {
+        fontSize: 16,
+      },
+      android: {
+        fontSize: 13,
+      },
+    }),
     fontWeight: '600',
-    color: '#2C3E50',
+    color: '#4B3F3A',
   },
   timeText: {
-    fontSize: 16,
+    ...Platform.select({
+      ios: {
+        fontSize: 16,
+      },
+      android: {
+        fontSize: 13,
+      },
+    }),
     fontWeight: '400',
-    color: '#4A5568',
+    color: '#6A5048',
   },
 });
 

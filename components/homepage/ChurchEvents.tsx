@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 
 interface Event {
   id: number;
@@ -52,11 +52,10 @@ const ChurchEvents: React.FC<ChurchEventsProps> = ({ events, onViewAll }) => (
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#FFF',
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    padding: 20,
+    padding: 15,
     marginBottom: 20,
-
   },
   headerRow: {
     flexDirection: 'row',
@@ -65,13 +64,29 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   sectionTitle: {
-    fontSize: 22,
+    ...Platform.select({
+      ios: {
+        fontSize: 22,
+        marginBottom: 5,
+      },
+      android: {
+        fontSize: 18,
+        marginBottom: 2,
+      },
+    }),
     fontWeight: '700',
-    color: '#2C3E50',
+    color: '#4B3F3A',
   },
   viewAllText: {
-    fontSize: 14,
-    color: '#6A5D43', // Previous warm neutral color
+    ...Platform.select({
+      ios: {
+        fontSize: 16,
+      },
+      android: {
+        fontSize: 13,
+      },
+    }),
+    color: '#8C6A5E',
     fontWeight: '600',
   },
   gridContainer: {
@@ -80,40 +95,35 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   eventCard: {
-    width: '48%',
-    aspectRatio: 1.2,
+    width: Platform.OS === 'ios' ? '48%' : '48%',
+    aspectRatio: Platform.OS === 'ios' ? 1.2 : 1,
     borderRadius: 14,
-    marginBottom: 15,
-    backgroundColor: '#E2E8F0', // Slightly darker gray
+    marginBottom: Platform.OS === 'ios' ? 15 : 10,
+    backgroundColor: '#F9F5F0',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 15,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    padding: Platform.OS === 'ios' ? 15 : 10,
   },
   cardContent: {
     justifyContent: 'center',
     alignItems: 'center',
   },
   dateContainer: {
-    backgroundColor: '#2C3E50', // Previous navy blue color
+    backgroundColor: '#8C6A5E',
     borderRadius: 50,
-    width: 60,
-    height: 60,
+    width: Platform.OS === 'ios' ? 60 : 50,
+    height: Platform.OS === 'ios' ? 60 : 50,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: Platform.OS === 'ios' ? 10 : 8,
   },
   dayText: {
-    fontSize: 20,
+    fontSize: Platform.OS === 'ios' ? 20 : 14,
     fontWeight: '700',
     color: '#FFFFFF',
   },
   monthText: {
-    fontSize: 12,
+    fontSize: Platform.OS === 'ios' ? 12 : 10,
     fontWeight: '600',
     color: '#FFFFFF',
   },
@@ -121,16 +131,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   eventTitle: {
-    fontSize: 14,
+    fontSize: Platform.OS === 'ios' ? 14 : 11,
     fontWeight: '700',
-    color: '#2C3E50',
+    color: '#4B3F3A',
     textAlign: 'center',
-    marginBottom: 5,
+    marginBottom: Platform.OS === 'ios' ? 5 : 3,
   },
   eventTime: {
-    fontSize: 12,
+    fontSize: Platform.OS === 'ios' ? 12 : 10,
     fontWeight: '500',
-    color: '#4A5568',
+    color: '#6A5048',
   },
 });
 

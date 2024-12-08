@@ -7,52 +7,95 @@ import {
   Image,
   View,
   FlatList,
+  Text,
+  TouchableOpacity,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import Navbar from '../../components/Navbar';
-import ChurchEvents from '../../components/ChurchEvents';
-import MassSchedule from '../../components/MassSchedule';
+import Navbar from '../../components/homepage/Navbar';
+import ChurchEvents from '../../components/homepage/ChurchEvents';
+import MassSchedule from '../../components/homepage/MassSchedule';
+import Carousel from '../../components/homepage/carousel';
+import Services from '../../components/homepage/services';
 import { supabase } from '../../backend/lib/supabase';
 
-interface LocalMassSchedule {
-  id: number;
-  day: string;
-  time: string;
-}
-
-interface LocalChurchEvent {
-  id: number;
-  title: string;
-  date: string;
-}
+const services = [
+  { label: 'House Blessing', icon: require('../../assets/icons/house_blessing_icon.png'), screen: '/appointment/house-blessing' },
+  { label: 'Funeral Mass', icon: require('../../assets/icons/funeral_mass_icon.png'), screen: '/appointment/funeral-mass' },
+  { label: 'Special Mass', icon: require('../../assets/icons/special_mass_icon.png'), screen: '/appointment/special-mass' },
+  { label: 'Prayer Intention', icon: require('../../assets/icons/prayer_intention_icon.png'), screen: '/appointment/prayer-intention' },
+];
 
 const HomePage = () => {
   const router = useRouter();
-  const [userName] = useState('Grechelle Ann');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [churchEvents, setChurchEvents] = useState<LocalChurchEvent[]>([]);
-  const [massSchedule, setMassSchedule] = useState<LocalMassSchedule[]>([]);
+  const [userName, setUserName] = useState('');
+
+
+  const fetchUserName = async () => {
+    try {
+      const { data, error } = await supabase.auth.getUser();
+      if (error) throw error;
+      const { id } = data.user || {};
+      const { data: profileData, error: profileError } = await supabase
+        .from('users') // Ensure this matches your table name
+        .select('full_name')
+        .eq('user_id', id)
+        .single();
+      if (profileError) throw profileError;
+      setUserName(profileData?.full_name || 'User');
+    } catch (err) {
+      console.error('Error fetching user name:', err);
+      setUserName('User'); // Fallback
+    }
+  };
+  
+
+  interface ChurchEvent {
+    id: number;
+    title: string;
+    date: string;
+  }
+  const [churchEvents, setChurchEvents] = useState<ChurchEvent[]>([]);
+  interface MassSchedule {
+    id: number;
+    day: string;
+    time: string;
+  }
+  
+  const [massSchedule, setMassSchedule] = useState<MassSchedule[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [carouselImages, setCarouselImages] = useState<string[]>([]);
 
-  // Carousel images
-  const carouselImages = [
-    require('../../assets/images/banner-2.png'),
-    require('../../assets/images/banner-1.png'),
-    require('../../assets/images/banner-3.png'),
-  ];
-
-  // Screen dimensions
   const { width } = Dimensions.get('window');
-  const ITEM_WIDTH = width * 0.9; // 90% of the screen width
-  const SPACING = 10; // Spacing between items
+  const ITEM_WIDTH = width * 0.9;
+  const SPACING = 2;
 
-  const [activeIndex, setActiveIndex] = useState(0); // Track active index
+  const [activeIndex, setActiveIndex] = useState(0);
 
   useEffect(() => {
+    fetchBanners();
     fetchMassSchedule();
     fetchChurchEvents();
     fetchUnreadNotifications();
+    fetchUserName();
   }, []);
+
+  const fetchBanners = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('banner')
+        .select('image_url'); // Assuming "image_url" column contains the URLs
+
+      if (error) throw error;
+
+      setCarouselImages(data.map((item) => item.image_url)); // Extract URLs from the data
+    } catch (error) {
+      if (error instanceof Error) {
+        console.error('Error fetching banners:', error.message);
+      } else {
+        console.error('Error fetching banners:', error);
+      }
+    }
+  };
 
   const fetchMassSchedule = async () => {
     const { data, error } = await supabase
@@ -105,50 +148,31 @@ const HomePage = () => {
   };
 
   const handleNavigate = (screen: string) => {
-    if (screen === '/notifications') {
-      setUnreadCount(0); // Reset unread count when navigating to notifications
-    }
     router.push(screen as any);
   };
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <Navbar
-          userName={userName}
-          unreadCount={unreadCount}
-          onNotificationsPress={() => handleNavigate('/notifications')}
+      <Navbar
+        userName={userName}
+        unreadCount={unreadCount}
+        onNotificationsPress={() => handleNavigate('/notifications')}
+      />
+
+        {/* Carousel Section */}
+        <Carousel
+          images={carouselImages}
+          activeIndex={activeIndex}
+          onScroll={(index) => setActiveIndex(index)}
         />
-        <View style={styles.carouselContainer}>
-          <FlatList
-            data={carouselImages}
-            horizontal
-            pagingEnabled
-            showsHorizontalScrollIndicator={false}
-            keyExtractor={(_, index) => index.toString()}
-            renderItem={({ item }) => (
-              <View style={[styles.carouselItem, { width: ITEM_WIDTH, marginRight: SPACING }]}>
-                <Image source={item} style={styles.carouselImage} />
-              </View>
-            )}
-            onScroll={(e) => {
-              const contentOffsetX = e.nativeEvent.contentOffset.x;
-              const currentIndex = Math.round(contentOffsetX / (ITEM_WIDTH + SPACING));
-              setActiveIndex(currentIndex);
-            }}
-          />
-          <View style={styles.dotsContainer}>
-            {carouselImages.map((_, index) => (
-              <View
-                key={index}
-                style={[
-                  styles.dot,
-                  activeIndex === index ? styles.activeDot : null,
-                ]}
-              />
-            ))}
-          </View>
-        </View>
+
+        {/* Services Section */}
+        <Services
+          services={services}
+          onNavigate={handleNavigate}
+        />
+
         <ChurchEvents
           events={churchEvents}
           onViewAll={() => handleNavigate('/calendar')}
@@ -168,10 +192,8 @@ const styles = StyleSheet.create({
     padding: 10,
   },
   carouselContainer: {
+    padding: 10,
     marginBottom: 20,
-    backgroundColor: '#FFFFFF', // White container background
-    borderRadius: 15, // Rounded corners
-    padding: 10, 
   },
   carouselItem: {
     borderRadius: 10,
@@ -179,9 +201,8 @@ const styles = StyleSheet.create({
   },
   carouselImage: {
     width: '100%',
-    height: 150,
+    height: 190,
     borderRadius: 10,
-    marginTop: 10,
   },
   dotsContainer: {
     flexDirection: 'row',
@@ -192,13 +213,57 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#D4A373', // Muted orange-brown for inactive dots
+    backgroundColor: '#D4A373',
     marginHorizontal: 4,
   },
   activeDot: {
-    backgroundColor: '#A4501B', // Darker orange-brown for active dots
+    backgroundColor: '#A4501B',
+  },
+  servicesSection: {
+    marginBottom: 20,
+    paddingHorizontal: 10,
+  },
+  servicesHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#4B3F3A',
+  },
+  seeAllText: {
+    fontSize: 14,
+    color: '#8C6A5E',
+    fontWeight: '600',
+  },
+  servicesRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  serviceTile: {
+    width: '22%',
+    backgroundColor: '#FFF',
+    borderRadius: 10,
+    padding: 15,
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  serviceIcon: {
+    width: 30,
+    height: 30,
+    resizeMode: 'contain',
+  },
+  serviceLabel: {
+    marginTop: 8,
+    fontSize: 11,
+    fontWeight: '500',
+    color: '#2C3E50',
+    textAlign: 'center',
   },
 });
 
 export default HomePage;
-

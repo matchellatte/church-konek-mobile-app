@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import SubmitButton from '../../../components/SubmitButton'; // Adjust the path if necessary
+import SubmitButton from '../../components/SubmitButton'; // Adjust the path if necessary
 
 const ChurchDonation: React.FC = () => {
   const router = useRouter();

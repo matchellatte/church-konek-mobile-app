@@ -4,10 +4,13 @@ import {
   View,
   Text,
   SafeAreaView,
-  TouchableOpacity,
   TextInput,
-  Alert,
+  TouchableOpacity,
   ScrollView,
+  Image,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../backend/lib/supabase';
@@ -24,8 +27,39 @@ const Auth: React.FC<AuthProps> = ({ mode }) => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [emailError, setEmailError] = useState(''); // To store email validation errors
+  const [checkingEmail, setCheckingEmail] = useState(false); // To indicate if validation is in progress
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+
+  const checkEmailExists = async (email: string) => {
+    setCheckingEmail(true);
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('email')
+        .eq('email', email);
+
+      if (error) {
+        console.error('Error checking email:', error.message);
+        setEmailError('An unexpected error occurred. Please try again later.');
+      } else if (data && data.length > 0) {
+        setEmailError('This email is already in use.');
+      } else {
+        setEmailError('');
+      }
+    } catch (err) {
+      console.error('Unexpected Error:', err);
+      setEmailError('An unexpected error occurred. Please try again later.');
+    } finally {
+      setCheckingEmail(false);
+    }
+  };
+
+  async function handleGoogleSignIn() {
+    Alert.alert('Google Login', 'Google login functionality coming soon!');
+  }
 
   async function handleAuth() {
     if (mode === 'signup' && password !== confirmPassword) {
@@ -41,71 +75,68 @@ const Auth: React.FC<AuthProps> = ({ mode }) => {
     setLoading(true);
   
     if (mode === 'login') {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      try {
+        const { error: authError } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
   
-      if (error) {
-        Alert.alert('Login Failed', error.message);
-      } else {
+        if (authError) {
+          Alert.alert('Login Failed', authError.message);
+          return;
+        }
+  
         router.replace('/(tabs)');
+      } catch (err) {
+        Alert.alert('Error', 'An unexpected error occurred.');
+      } finally {
+        setLoading(false);
       }
     } else {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: { data: { full_name: fullName } },
-      });
+      try {
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: { data: { full_name: fullName } },
+        });
   
-      if (error) {
-        Alert.alert('Signup Failed', error.message);
-      } else {
-        const userId = data.user?.id;
-        if (userId) {
-          try {
-            console.log('User ID:', userId);  // Log the user ID for verification
-  
-            // Insert the new user into the "Users" table
-            const { error: insertError } = await supabase
-              .from('users') // Ensure case sensitivity
-              .insert([
-                {
-                  user_id: userId,
-                  full_name: fullName,
-                  email: email,
-                },
-              ]);
-  
-            if (insertError) {
-              console.error('Error inserting user into Users table:', insertError);
-              Alert.alert('Signup Success', 'Please check your inbox for email verification!');
-            } else {
-              // Verification step: Fetch the user to confirm insertion
-              const { data: usersData, error: fetchError } = await supabase
-                .from('users')
-                .select('*')
-                .eq('user_id', userId);
-  
-              if (fetchError) {
-                console.error('Error fetching user for verification:', fetchError);
-              } else if (usersData && usersData.length > 0) {
-                console.log('User successfully inserted and verified in Users table:', usersData[0]);
-                Alert.alert('Signup Success', 'Please check your inbox for email verification!');
-              } else {
-                console.warn('User record was not found after insertion attempt.');
-                Alert.alert('Signup Success', 'User record not found. Please try again or contact support.');
-              }
-            }
-          } catch (error) {
-            console.error('Unexpected error during user insertion:', error);
-          }
+        if (error) {
+          Alert.alert('Signup Failed', error.message);
+          return;
         }
-        router.replace('/auth/login');
+  
+        const userId = data.user?.id;
+        console.log('User ID:', userId);
+  
+        if (userId) {
+          const { data: insertData, error: insertError } = await supabase.from('users').insert([
+            {
+              user_id: userId,
+              full_name: fullName,
+              email: email,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            },
+          ]);
+  
+          if (insertError) {
+            console.error('Insert Error:', insertError);
+            Alert.alert('Error', 'Failed to save user information.');
+            return;
+          } else {
+            console.log('Insert Success:', insertData);
+          }
+  
+          router.push({ pathname: '/auth/otp-verification', params: { email: email } });
+        } else {
+          Alert.alert('Signup Failed', 'Unable to retrieve user information.');
+        }
+      } catch (err) {
+        Alert.alert('Error', 'An unexpected error occurred.');
+      } finally {
+        setLoading(false);
       }
     }
-  
-    setLoading(false);
   }
   
   
@@ -121,103 +152,146 @@ const Auth: React.FC<AuthProps> = ({ mode }) => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.navbar}>
-          <TouchableOpacity onPress={() => router.back()}>
-            <Ionicons name="chevron-back-outline" size={30} color="#333" />
-          </TouchableOpacity>
-          <Text style={styles.navTitle}>
-            {mode === 'login' ? 'Welcome Back' : 'Create Account'}
-          </Text>
-        </View>
-
-        <Text style={styles.headerText}>
-          {mode === 'login' ? 'Sign in to your account' : 'Sign up to get started'}
-        </Text>
-
-        {mode === 'signup' && (
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Full Name</Text>
-            <TextInput
-              style={styles.input}
-              value={fullName}
-              onChangeText={setFullName}
-              placeholder="Enter your full name"
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <ScrollView contentContainerStyle={styles.content}>
+          {/* Logo Section */}
+          <View style={styles.logoContainer}>
+            <Image
+              source={require('../../assets/images/church_konek_logo2.png')}
+              style={styles.logo}
             />
           </View>
-        )}
 
-        <View style={styles.inputContainer}>
-          <Text style={styles.label}>Email</Text>
-          <TextInput
-            style={styles.input}
-            value={email}
-            onChangeText={setEmail}
-            placeholder="Enter your email"
-            keyboardType="email-address"
-            autoCapitalize="none"
-          />
-        </View>
+          {/* Header Text */}
+          <Text style={styles.headerText}>
+            {mode === 'login' ? 'Sign in to your Account' : 'Create an Account'}
+          </Text>
+          <Text style={styles.subHeaderText}>
+            {mode === 'login'
+              ? 'Enter your email and password to log in.'
+              : 'Enter your details to get started.'}
+          </Text>
 
-        <View style={styles.inputContainer}>
-          <Text style={styles.label}>Password</Text>
-          <View style={styles.passwordContainer}>
+          {/* Input Fields */}
+          {mode === 'signup' && (
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Full Name</Text>
+              <TextInput
+                style={styles.input}
+                value={fullName}
+                onChangeText={setFullName}
+                placeholder="Enter your full name"
+              />
+            </View>
+          )}
+
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>Email</Text>
             <TextInput
               style={styles.input}
-              value={password}
-              onChangeText={setPassword}
-              placeholder="Enter your password"
-              secureTextEntry={!showPassword}
+              value={email}
+              onChangeText={setEmail}
+              placeholder="Enter your email"
+              keyboardType="email-address"
               autoCapitalize="none"
             />
-            <TouchableOpacity
-              onPress={() => setShowPassword(!showPassword)}
-              style={styles.eyeIcon}
-            >
-              <Ionicons
-                name={showPassword ? 'eye-off' : 'eye'}
-                size={24}
-                color="#4A4A4A"
-              />
-            </TouchableOpacity>
           </View>
-        </View>
 
-        {mode === 'signup' && (
           <View style={styles.inputContainer}>
-            <Text style={styles.label}>Confirm Password</Text>
-            <TextInput
-              style={styles.input}
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              placeholder="Confirm your password"
-              secureTextEntry
-            />
+            <Text style={styles.label}>Password</Text>
+            <View style={styles.passwordContainer}>
+              <TextInput
+                style={styles.input}
+                value={password}
+                onChangeText={setPassword}
+                placeholder="Enter your password"
+                secureTextEntry={!showPassword}
+                autoCapitalize="none"
+              />
+              <TouchableOpacity
+                onPress={() => setShowPassword(!showPassword)}
+                style={styles.eyeIcon}
+              >
+                <Ionicons
+                  name={showPassword ? 'eye-off' : 'eye'}
+                  size={24}
+                  color="#333"
+                />
+              </TouchableOpacity>
+            </View>
           </View>
-        )}
 
-        {mode === 'login' && (
-          <TouchableOpacity
-            onPress={() => alert('Forgot Password functionality to be implemented')}
-            style={styles.forgotPasswordContainer}
-          >
-            <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+          {mode === 'signup' && (
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Confirm Password</Text>
+              <View style={styles.passwordContainer}>
+                <TextInput
+                  style={styles.input}
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  placeholder="Confirm your password"
+                  secureTextEntry={!showConfirmPassword}
+                  autoCapitalize="none"
+                />
+                <TouchableOpacity
+                  onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                  style={styles.eyeIcon}
+                >
+                  <Ionicons
+                    name={showConfirmPassword ? 'eye-off' : 'eye'}
+                    size={24}
+                    color="#333"
+                  />
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+
+          {mode === 'login' && (
+            <TouchableOpacity style={styles.forgotPasswordContainer}>
+              <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+            </TouchableOpacity>
+          )}
+
+          {mode === 'signup' && (
+            <Text style={styles.policyText}>
+              By signing up, you agree to our Terms of Service and Privacy Policy.
+            </Text>
+          )}
+
+          {/* Log In / Sign Up Button */}
+          <SubmitButton
+            label={loading ? (mode === 'login' ? 'Logging in...' : 'Signing up...') : (mode === 'login' ? 'Log In' : 'Sign Up')}
+            onPress={handleAuth}
+          />
+
+          {/* Google Login Button for Login Page */}
+          {mode === 'login' && (
+            <>
+              <Text style={styles.orText}>or continue with</Text>
+              <TouchableOpacity style={styles.googleButton} onPress={handleGoogleSignIn}>
+                <Image
+                  source={require('../../assets/icons/google_icon.png')}
+                  style={styles.googleIcon}
+                />
+                <Text style={styles.googleButtonText}>Google</Text>
+              </TouchableOpacity>
+            </>
+          )}
+
+          {/* Footer Text */}
+          <TouchableOpacity onPress={toggleAuthMode} style={styles.footerTextContainer}>
+            <Text style={styles.footerText}>
+              {mode === 'login'
+                ? "Don't have an account? Sign Up"
+                : 'Already have an account? Log In'}
+            </Text>
           </TouchableOpacity>
-        )}
-
-        <SubmitButton
-          label={loading ? (mode === 'login' ? 'Logging in...' : 'Registering...') : (mode === 'login' ? 'Sign In' : 'Sign Up')}
-          onPress={handleAuth}
-        />
-
-        <TouchableOpacity onPress={toggleAuthMode} style={styles.registerContainer}>
-          <Text style={styles.registerText}>
-            {mode === 'login'
-              ? "Don't have an account? Sign Up"
-              : 'Already have an account? Log In'}
-          </Text>
-        </TouchableOpacity>
-      </ScrollView>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
@@ -226,46 +300,88 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: '#F8F8F8',
-    marginHorizontal: 15,
-    paddingHorizontal: 20,
+    paddingHorizontal: 0,
   },
-  navbar: {
-    flexDirection: 'row',
+  logoContainer: {
+    ...Platform.select({
+      ios: {
+        marginBottom: 20,
+      },
+      android: {
+        marginTop: 0,
+        marginBottom: 8,
+      },
+    }),
     alignItems: 'center',
-    marginVertical: 20,
   },
-  navTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginLeft: 10,
-    color: '#333',
+  logo: {
+    width: 150,
+    height: 150,
   },
   content: {
-    paddingBottom: 20,
-    marginHorizontal: 15,
+    ...Platform.select({
+      android: {
+        paddingTop: 3,
+      },
+    }),
+    padding: 15,
   },
   headerText: {
-    fontSize: 22,
-    fontWeight: '600',
+    ...Platform.select({
+      ios: {
+        fontSize: 32,
+      },
+      android: {
+        fontSize: 24,
+      },
+    }),
+    fontWeight: '700',
     color: '#333',
-    marginTop: 30,
+    marginBottom: 10,
+  },
+  subHeaderText: {
+    ...Platform.select({
+      ios: {
+        fontSize: 16,
+      },
+      android: {
+        fontSize: 13,
+      },
+    }),
+    color: '#555',
     marginBottom: 20,
-    textAlign: 'left',
   },
   inputContainer: {
     marginBottom: 15,
   },
   label: {
-    fontSize: 14,
+    ...Platform.select({
+      ios: {
+        fontSize: 15,
+      },
+      android: {
+        fontSize: 11,
+      },
+    }),
     color: '#333',
     marginBottom: 5,
   },
   input: {
+    ...Platform.select({
+      ios: {
+        paddingVertical: 14,
+        fontSize: 16,
+      },
+      android: {
+        paddingVertical: 12,
+        fontSize: 13,
+      },
+    }),
+    paddingHorizontal: 15,
     backgroundColor: '#F1F1F1',
     borderRadius: 8,
-    padding: 15,
-    borderColor: '#E0E0E0',
     borderWidth: 1,
+    borderColor: '#E0E0E0',
   },
   passwordContainer: {
     position: 'relative',
@@ -278,22 +394,79 @@ const styles = StyleSheet.create({
   },
   forgotPasswordContainer: {
     alignSelf: 'flex-end',
-    marginVertical: 5,
-  },
-  forgotPasswordText: {
-    fontSize: 14,
-    color: '#333',
-    textDecorationLine: 'underline',
     marginBottom: 15,
   },
-  registerContainer: {
-    marginTop: 10,
-    marginHorizontal: 15,
-    alignItems: 'center',
+  forgotPasswordText: {
+    ...Platform.select({
+      ios: {
+        fontSize: 14,
+      },
+      android: {
+        fontSize: 11,
+      },
+    }),
+    color: '#8C6A5E',
   },
-  registerText: {
+  orText: {
+    ...Platform.select({
+      ios: {
+        fontSize: 14,
+      },
+      android: {
+        fontSize: 11,
+      },
+    }),
+    textAlign: 'center',
+    color: '#555',
+    marginVertical: 20,
+  },
+  googleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 15,
+    borderRadius: 8,
+    backgroundColor: '#FFF',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    marginBottom: 15,
+  },
+  googleButtonText: {
+    marginLeft: 10,
     fontSize: 14,
     color: '#333',
+  },
+  googleIcon: {
+    width: 20,
+    height: 20,
+  },
+  policyText: {
+    ...Platform.select({
+      ios: {
+        fontSize: 11,
+      },
+      android: {
+        fontSize: 9,
+      },
+    }),
+    color: '#555',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  footerTextContainer: {
+    alignItems: 'center',
+    marginTop: 30,
+  },
+  footerText: {
+    ... Platform.select({
+      ios: {
+        fontSize: 14,
+      },
+      android: {
+        fontSize: 11,
+    }
+  }),
+    color: '#8C6A5E',
   },
 });
 

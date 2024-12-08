@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { SafeAreaView, StyleSheet, View, Text, FlatList } from 'react-native';
+import { SafeAreaView, StyleSheet, View, Text, FlatList, Platform } from 'react-native';
 import { Calendar } from 'react-native-calendars';
 import { supabase } from '../../backend/lib/supabase';
 
 interface Event {
-  id: string; // UUID from Supabase
+  id: string;
   title: string;
   description: string;
-  event_date: string; // Timestamp format
+  event_date: string;
 }
 
 const ChurchCalendar = () => {
@@ -17,6 +17,8 @@ const ChurchCalendar = () => {
   const [selectedEvents, setSelectedEvents] = useState<Event[]>([]);
 
   useEffect(() => {
+    const today = new Date().toISOString().split('T')[0];
+    setSelectedDate(today);
     fetchEvents();
   }, []);
 
@@ -30,34 +32,46 @@ const ChurchCalendar = () => {
       return;
     }
 
-    const formattedEvents = data.map((item: any) => ({
-      id: item.event_id,
-      title: item.title,
-      description: item.description,
-      event_date: item.event_date.split('T')[0], // Extract only the date part
+    const formattedEvents = (data || []).map((item: any) => ({
+      id: item.event_id || Math.random().toString(),
+      title: item.title || 'No Title',
+      description: item.description || 'No Description',
+      event_date: item.event_date ? item.event_date.split('T')[0] : '',
     }));
 
     setEvents(formattedEvents);
 
-    // Generate marked dates for the calendar
-    const markedDatesObject = formattedEvents.reduce((acc, event) => {
-      acc[event.event_date] = { marked: true, dotColor: '#6A5D43' }; // Customize dot color
+    const markedDatesObject = formattedEvents.reduce((acc: { [key: string]: { marked: boolean; dotColor?: string } }, event) => {
+      if (event.event_date) {
+        acc[event.event_date] = { marked: true, dotColor: '#6A5D43' };
+      }
       return acc;
-    }, {} as { [key: string]: { marked: boolean; dotColor?: string } });
+    }, {});
 
     setMarkedDates(markedDatesObject);
   };
 
   const handleDayPress = (day: { dateString: string }) => {
     setSelectedDate(day.dateString);
-    const filteredEvents = events.filter((event) => event.event_date === day.dateString);
+    const filteredEvents = events.filter((event) => event.event_date && event.event_date === day.dateString);
     setSelectedEvents(filteredEvents);
   };
+
+  const renderEvent = ({ item }: { item: Event }) => (
+    <View style={styles.eventCard}>
+      <Text style={styles.eventTitle}>{item.title}</Text>
+      <Text style={styles.eventDescription}>{item.description}</Text>
+    </View>
+  );
 
   return (
     <SafeAreaView style={styles.container}>
       <Text style={styles.headerText}>Church Calendar</Text>
+      <Text style={styles.headerDescription}>
+        Discover the schedule of events in our church.
+      </Text>
       <Calendar
+        current={selectedDate || undefined}
         markedDates={{
           ...markedDates,
           ...(selectedDate && { [selectedDate]: { selected: true, selectedColor: '#6A5D43' } }),
@@ -76,19 +90,15 @@ const ChurchCalendar = () => {
         }}
         style={styles.calendar}
       />
-      <View style={styles.eventsContainer}>
+      <View style={styles.detailsContainer}>
         {selectedEvents.length > 0 ? (
           <>
             <Text style={styles.eventListTitle}>Events on {selectedDate}:</Text>
             <FlatList
               data={selectedEvents}
               keyExtractor={(item) => item.id}
-              renderItem={({ item }) => (
-                <View style={styles.eventCard}>
-                  <Text style={styles.eventTitle}>{item.title}</Text>
-                  <Text style={styles.eventDescription}>{item.description}</Text>
-                </View>
-              )}
+              renderItem={renderEvent}
+              contentContainerStyle={styles.eventList}
             />
           </>
         ) : (
@@ -105,53 +115,93 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F8F8F8',
-    padding: 15,
+
   },
   headerText: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    marginBottom: 15,
-    color: '#2C3E50',
-    textAlign: 'center',
+    ...Platform.select({
+      ios: {
+        fontSize: 28,
+      },
+      android: {
+        fontSize: 22,
+    }
+  }),
+    fontWeight: '700',
+    color: '#4B3F3A',
+    marginTop: 20,
+    marginLeft: 20,
+  },
+  headerDescription: {
+    ...Platform.select({
+      ios: {
+        fontSize: 16,
+      },
+      android: {
+        fontSize: 12,
+    }
+  }),
+
+    fontWeight: '400',
+    color: '#857F72',
+    marginLeft: 20,
+    marginTop: 5,
   },
   calendar: {
     borderRadius: 10,
     overflow: 'hidden',
-    elevation: 3,
-    marginBottom: 20,
+    margin: 10,
   },
-  eventsContainer: {
+  detailsContainer: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFFFFF', // White background for event details
     borderRadius: 10,
     padding: 15,
-    elevation: 3,
+    marginTop: 10,
   },
   eventListTitle: {
-    fontSize: 18,
+    ...Platform.select({
+      ios: {
+        fontSize: 18,
+      },
+      android: {
+        fontSize: 14,
+    }
+  }),
     fontWeight: '600',
     color: '#2C3E50',
     marginBottom: 10,
+  },
+  eventList: {
+    paddingBottom: 15,
   },
   eventCard: {
     backgroundColor: '#FFF5EB',
     padding: 15,
     borderRadius: 10,
     marginBottom: 15,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
   },
   eventTitle: {
-    fontSize: 16,
+    ...Platform.select({
+      ios: {
+        fontSize: 16,
+      },
+      android: {
+        fontSize: 12,
+    }
+  }),
     fontWeight: 'bold',
     color: '#6A5D43',
     marginBottom: 5,
   },
   eventDescription: {
-    fontSize: 14,
+    ...Platform.select({
+      ios: {
+        fontSize: 14,
+      },
+      android: {
+        fontSize: 12,
+    }
+  }),
     color: '#4A5568',
   },
   noEventsText: {

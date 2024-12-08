@@ -49,12 +49,20 @@ const AllAppointments = () => {
     if (error) {
       Alert.alert('Error fetching appointments', error.message);
     } else {
-      const formattedAppointments = data.map((appointment: any) => ({
-        id: appointment.appointment_id,
-        type: appointment.services.name,
-        date: appointment.appointment_date,
-        status: appointment.status,
-      }));
+      const formattedAppointments = data.map((appointment: any) => {
+        const formattedDate = new Date(appointment.appointment_date)
+          .toLocaleDateString('en-US', {
+            month: '2-digit',
+            day: '2-digit',
+            year: 'numeric',
+          });
+        return {
+          id: appointment.appointment_id,
+          type: appointment.services.name,
+          date: formattedDate,
+          status: appointment.status,
+        };
+      });
       setAppointments(formattedAppointments);
     }
   };
@@ -69,7 +77,7 @@ const AllAppointments = () => {
     <SafeAreaView style={styles.container}>
       <View style={styles.navbar}>
         <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="chevron-back-outline" size={30} color="#333" />
+          <Ionicons name="chevron-back-outline" size={30} color="#4B3F3A" />
         </TouchableOpacity>
         <Text style={styles.navTitle}>All Appointments</Text>
       </View>
@@ -84,13 +92,17 @@ const AllAppointments = () => {
               style={styles.appointmentCard}
               onPress={() => handleAppointmentClick(appointment)}
             >
-              <View style={styles.appointmentContent}>
-                <View style={styles.appointmentInfo}>
-                  <Text style={styles.appointmentType}>{appointment.type}</Text>
-                  <Text style={styles.appointmentDate}>{appointment.date}</Text>
-                </View>
-                <Text style={styles.appointmentStatus}>{appointment.status}</Text>
+              <Ionicons
+                name="calendar-outline"
+                size={24}
+                color="#A57A5A"
+                style={styles.calendarIcon}
+              />
+              <View style={styles.appointmentInfo}>
+                <Text style={styles.appointmentType}>{appointment.type}</Text>
+                <Text style={styles.appointmentDate}>{appointment.date}</Text>
               </View>
+              <Text style={styles.appointmentStatus}>{appointment.status}</Text>
             </TouchableOpacity>
           ))
         )}
@@ -102,18 +114,19 @@ const AllAppointments = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FAFAFA',
+    backgroundColor: '#F8F9FA',
   },
   navbar: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 15,
     paddingVertical: 20,
+    backgroundColor: '#FFFFFF',
   },
   navTitle: {
     fontSize: 22,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#4B3F3A',
     marginLeft: 10,
   },
   scrollContainer: {
@@ -122,38 +135,46 @@ const styles = StyleSheet.create({
   },
   noAppointmentsText: {
     fontSize: 16,
-    color: '#666',
+    color: '#857F72',
     textAlign: 'center',
     marginTop: 20,
   },
   appointmentCard: {
-    backgroundColor: '#E6F4F1',
+    backgroundColor: '#FFFFFF',
     padding: 15,
-    borderRadius: 10,
-    marginBottom: 10,
-  },
-  appointmentContent: {
+    borderRadius: 12,
+    marginBottom: 15,
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  calendarIcon: {
+    backgroundColor: '#F9F5F0',
+    padding: 10,
+    borderRadius: 10,
+    marginRight: 15,
   },
   appointmentInfo: {
     flex: 1,
   },
   appointmentType: {
-    fontSize: 14,
-    color: '#666',
-    fontWeight: 'bold',
-    marginBottom: 5,
+    fontSize: 16,
+    color: '#5A4A3A',
+    fontWeight: '600',
+    marginBottom: 2,
   },
   appointmentDate: {
     fontSize: 14,
-    color: '#666',
+    color: '#857F72',
   },
   appointmentStatus: {
-    fontSize: 14,
-    color: '#333',
-    fontWeight: 'bold',
+    fontSize: 12,
+    color: '#FFFFFF',
+    fontWeight: '600',
+    backgroundColor: '#A57A5A',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    textAlign: 'center',
   },
 });
 

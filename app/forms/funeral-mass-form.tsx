@@ -1,21 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import {
   SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Alert,
   View,
   Text,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
-  ScrollView,
-  Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
-import { Calendar } from 'react-native-calendars';
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
 import { supabase } from '../../backend/lib/supabase';
+import TopNavbar from '../../components/top-navbar';
+import CalendarDatePicker from '../../components/calendar-date-picker';
+import FormInputField from '../../components/form-input-field';
+import SubmitButton from '../../components/SubmitButton';
 
 const FuneralMassForm: React.FC = () => {
-  const router = useRouter();
   const [deceasedName, setDeceasedName] = useState('');
   const [guardianName, setGuardianName] = useState('');
   const [contactNumber, setContactNumber] = useState('');
@@ -27,15 +27,14 @@ const FuneralMassForm: React.FC = () => {
   }, []);
 
   const fetchEventDates = async () => {
-    const { data, error } = await supabase
-      .from('event') // Fetch from the event table
-      .select('event_date');
+    try {
+      const { data, error } = await supabase.from('event').select('event_date');
+      if (error) throw error;
 
-    if (error) {
-      console.error('Error fetching event dates:', error);
-    } else {
-      const dates = data.map((item: any) => item.event_date.split('T')[0]); // Extract date part only
+      const dates = data.map((item: any) => item.event_date.split('T')[0]);
       setEventDates(dates);
+    } catch (error) {
+      Alert.alert('Error', 'Failed to load unavailable dates. Please try again later.');
     }
   };
 
@@ -46,10 +45,11 @@ const FuneralMassForm: React.FC = () => {
     }
 
     try {
-      const userResponse = await supabase.auth.getUser();
-      const userId = userResponse.data?.user?.id;
-      if (!userId) {
-        Alert.alert('Error', 'User is not authenticated.');
+      const { data: userResponse, error: userError } = await supabase.auth.getUser();
+      const userId = userResponse?.user?.id;
+
+      if (userError || !userId) {
+        Alert.alert('Error', 'Failed to retrieve user information. Please try again.');
         return;
       }
 
@@ -60,7 +60,7 @@ const FuneralMassForm: React.FC = () => {
         .single();
 
       if (serviceError || !serviceData) {
-        Alert.alert('Error', 'Failed to fetch the service ID for Funeral Mass. Please try again.');
+        Alert.alert('Error', 'Failed to fetch the service ID. Please try again.');
         return;
       }
 
@@ -100,7 +100,6 @@ const FuneralMassForm: React.FC = () => {
         Alert.alert('Error', 'Failed to book funeral mass appointment. Please try again.');
       } else {
         Alert.alert('Success', 'Funeral mass appointment booked successfully.');
-        router.back();
       }
     } catch (error) {
       Alert.alert('Error', 'An unexpected error occurred. Please try again.');
@@ -109,66 +108,51 @@ const FuneralMassForm: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Custom Navbar */}
-      <View style={styles.navbar}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="chevron-back-outline" size={30} color="#333" />
-        </TouchableOpacity>
-        <Text style={styles.navTitle}>Funeral Mass Form</Text>
-      </View>
-
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* Personal Details Section */}
-        <View style={styles.section}>
-          <Text style={styles.label}>Deceased's Name:</Text>
-          <TextInput
-            style={styles.input}
-            value={deceasedName}
-            onChangeText={setDeceasedName}
-            placeholder="Enter Deceased's Name"
+      <TopNavbar title="Funeral Mass Form" />
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.keyboardAvoidingView}
+      >
+        <ScrollView contentContainerStyle={styles.scrollContent}>
+          {/* Funeral Mass Date Section */}
+          <CalendarDatePicker
+            selectedDate={selectedDate}
+            setSelectedDate={setSelectedDate}
+            eventDates={eventDates}
           />
 
-          <Text style={styles.label}>Guardian's Name:</Text>
-          <TextInput
-            style={styles.input}
-            value={guardianName}
-            onChangeText={setGuardianName}
-            placeholder="Enter Guardian's Name"
-          />
+          {/* Personal Details Section */}
+          <View style={styles.sectionContainer}>
+            <Text style={styles.sectionTitle}>Personal Details</Text>
 
-          <Text style={styles.label}>Contact Number:</Text>
-          <TextInput
-            style={styles.input}
-            value={contactNumber}
-            onChangeText={setContactNumber}
-            placeholder="Enter Contact Number"
-            keyboardType="phone-pad"
-          />
-        </View>
+            <FormInputField
+              label="Deceased's Name"
+              placeholder="Enter Deceased's Name"
+              value={deceasedName}
+              onChangeText={setDeceasedName}
+              required
+            />
+            <FormInputField
+              label="Guardian's Name"
+              placeholder="Enter Guardian's Name"
+              value={guardianName}
+              onChangeText={setGuardianName}
+              required
+            />
+            <FormInputField
+              label="Contact Number"
+              placeholder="Enter Contact Number"
+              value={contactNumber}
+              onChangeText={setContactNumber}
+              required
+              keyboardType="phone-pad"
+            />
+          </View>
 
-        {/* Funeral Mass Date Section */}
-        <View style={styles.section}>
-          <Text style={styles.label}>Choose a Funeral Mass Date:</Text>
-          <Calendar
-            onDayPress={(day: { dateString: string }) => setSelectedDate(day.dateString)}
-            markedDates={{
-              [selectedDate]: { selected: true, selectedColor: '#C69C6D' },
-              ...eventDates.reduce(
-                (acc, date) => ({
-                  ...acc,
-                  [date]: { disabled: true, disableTouchEvent: true, dotColor: 'red' },
-                }),
-                {}
-              ),
-            }}
-          />
-        </View>
-
-        {/* Book Appointment Button */}
-        <TouchableOpacity style={styles.submitButton} onPress={handleAppointmentBooking}>
-          <Text style={styles.submitButtonText}>Book an Appointment</Text>
-        </TouchableOpacity>
-      </ScrollView>
+          {/* Book Appointment Button */}
+          <SubmitButton label="Book an Appointment" onPress={handleAppointmentBooking} />
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
@@ -178,54 +162,31 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F8F8F8',
   },
-  navbar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 15,
-    paddingVertical: 20,
-    backgroundColor: '#fff',
-  },
-  navTitle: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#333',
-    marginLeft: 10,
+  keyboardAvoidingView: {
+    flex: 1,
   },
   scrollContent: {
-    padding: 20,
+    padding: 15,
     paddingBottom: 50,
   },
-  section: {
-    backgroundColor: '#fff',
-    padding: 15,
+  sectionContainer: {
+    backgroundColor: '#FFFFFF',
     borderRadius: 10,
-    marginBottom: 15,
+    padding: 20,
+    marginBottom: 20,
   },
-  label: {
-    fontSize: 16,
+  sectionTitle: {
+    ...Platform.select({
+      ios: {
+        fontSize: 20,
+      },
+      android: {
+        fontSize: 15,
+      },
+    }),
     fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 8,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 10,
-    fontSize: 16,
+    color: '#4B3F3A',
     marginBottom: 15,
-    backgroundColor: '#F9F9F9',
-  },
-  submitButton: {
-    backgroundColor: '#6A5D43',
-    paddingVertical: 15,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  submitButtonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
   },
 });
 
