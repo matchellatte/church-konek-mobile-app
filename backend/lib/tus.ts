@@ -61,7 +61,7 @@ export async function uploadFiles(
             if (upload.options.metadata) {
               console.log('Uploaded %s', upload.options.metadata.objectName);
             } else {
-              console.log('Uploaded file');
+              console.log('Uploaded file with unknown metadata');
             }
             resolve();
           },
