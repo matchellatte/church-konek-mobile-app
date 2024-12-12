@@ -70,7 +70,7 @@ const styles = StyleSheet.create({
         },
     }),
     fontWeight: 'bold',
-    color: '#4B3F3A',
+    color: '#333',
     marginBottom: 10,
   },
   sectionDescription: {

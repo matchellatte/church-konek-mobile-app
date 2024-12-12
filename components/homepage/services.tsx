@@ -51,25 +51,27 @@ const styles = StyleSheet.create({
   sectionTitle: {
     ...Platform.select({
         ios: {
-          fontSize: 25,
+          fontSize: 22,
         },
         android: {
           fontSize: 18,
       }
     }),
+    marginLeft: 10,
     fontWeight: '700',
-    color: '#4B3F3A',
+    color: '#333',
   },
   seeAllText: {
     ...Platform.select({
         ios: {
-          fontSize: 16,
+          fontSize: 15,
         },
         android: {
           fontSize: 13,
       }
     }),
-    color: '#8C6A5E',
+    marginRight: 10,
+    color: '#333',
     fontWeight: '600',
   },
   servicesRow: {
@@ -100,7 +102,7 @@ const styles = StyleSheet.create({
     }),
     marginTop: 8,
     fontWeight: '500',
-    color: '#2C3E50',
+    color: '#333',
     textAlign: 'center',
   },
 });

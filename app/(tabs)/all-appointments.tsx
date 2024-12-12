@@ -95,7 +95,7 @@ const AllAppointments = () => {
               <Ionicons
                 name="calendar-outline"
                 size={24}
-                color="#A57A5A"
+                color="#6B7280"
                 style={styles.calendarIcon}
               />
               <View style={styles.appointmentInfo}>
@@ -126,7 +126,7 @@ const styles = StyleSheet.create({
   navTitle: {
     fontSize: 22,
     fontWeight: 'bold',
-    color: '#4B3F3A',
+    color: '#333',
     marginLeft: 10,
   },
   scrollContainer: {
@@ -158,13 +158,13 @@ const styles = StyleSheet.create({
   },
   appointmentType: {
     fontSize: 16,
-    color: '#5A4A3A',
+    color: '#333',
     fontWeight: '600',
     marginBottom: 2,
   },
   appointmentDate: {
     fontSize: 14,
-    color: '#857F72',
+    color: '#6B7280',
   },
   appointmentStatus: {
     fontSize: 12,

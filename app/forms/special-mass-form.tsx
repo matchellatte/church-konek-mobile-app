@@ -14,6 +14,7 @@ import SubmitButton from '../../components/SubmitButton';
 import TopNavbar from '../../components/top-navbar';
 import CalendarDatePicker from '../../components/calendar-date-picker';
 import FormInputField from '../../components/form-input-field';
+import { useRouter } from 'expo-router';
 
 const SpecialMassForm: React.FC = () => {
   const [fullName, setFullName] = useState('');
@@ -21,6 +22,7 @@ const SpecialMassForm: React.FC = () => {
   const [massType, setMassType] = useState('');
   const [selectedDate, setSelectedDate] = useState('');
   const [eventDates, setEventDates] = useState<string[]>([]);
+  const router = useRouter();
 
   useEffect(() => {
     fetchEventDates();
@@ -100,6 +102,9 @@ const SpecialMassForm: React.FC = () => {
         Alert.alert('Error', 'Failed to book Special Mass appointment. Please try again.');
       } else {
         Alert.alert('Success', 'Special Mass appointment booked successfully.');
+
+        // Navigate to the appointments page
+        router.push(`/(tabs)/appointment`);
       }
     } catch (error) {
       Alert.alert('Error', 'An unexpected error occurred. Please try again.');

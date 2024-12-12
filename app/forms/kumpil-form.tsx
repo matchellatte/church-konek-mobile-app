@@ -14,6 +14,7 @@ import TopNavbar from '../../components/top-navbar';
 import CalendarDatePicker from '../../components/calendar-date-picker';
 import FormInputField from '../../components/form-input-field';
 import SubmitButton from '../../components/SubmitButton';
+import { useRouter } from 'expo-router';
 
 const KumpilForm: React.FC = () => {
   const [fullName, setFullName] = useState('');
@@ -23,6 +24,7 @@ const KumpilForm: React.FC = () => {
   const [ninangName, setNinangName] = useState('');
   const [selectedDate, setSelectedDate] = useState('');
   const [eventDates, setEventDates] = useState<string[]>([]);
+  const router = useRouter();
 
   useEffect(() => {
     fetchEventDates();
@@ -105,6 +107,9 @@ const KumpilForm: React.FC = () => {
         Alert.alert('Booking Failed', 'An error occurred. Please try again.');
       } else {
         Alert.alert('Success', 'Kumpil appointment booked successfully.');
+
+        // Navigate to the appointments page
+        router.push(`/(tabs)/appointment`);
       }
     } catch (error) {
       Alert.alert('Error', 'An unexpected error occurred. Please try again.');

@@ -14,6 +14,7 @@ import TopNavbar from '../../components/top-navbar';
 import CalendarDatePicker from '../../components/calendar-date-picker';
 import FormInputField from '../../components/form-input-field';
 import SubmitButton from '../../components/SubmitButton';
+import { useRouter } from 'expo-router';
 
 const HouseBlessingForm: React.FC = () => {
   const [fullName, setFullName] = useState('');
@@ -21,6 +22,7 @@ const HouseBlessingForm: React.FC = () => {
   const [contactNumber, setContactNumber] = useState('');
   const [selectedDate, setSelectedDate] = useState('');
   const [eventDates, setEventDates] = useState<string[]>([]);
+  const router = useRouter();
 
   useEffect(() => {
     fetchEventDates();
@@ -101,6 +103,8 @@ const HouseBlessingForm: React.FC = () => {
         Alert.alert('Error', 'Failed to book house blessing appointment. Please try again.');
       } else {
         Alert.alert('Success', 'House blessing appointment booked successfully.');
+
+        router.push(`/(tabs)/appointment`);
       }
     } catch (error) {
       Alert.alert('Error', 'An unexpected error occurred. Please try again.');

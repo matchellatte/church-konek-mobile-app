@@ -59,7 +59,7 @@ const styles = StyleSheet.create({
       },
     }),
     fontWeight: 'bold',
-    color: '#4B3F3A', 
+    color: '#333', 
     marginBottom: 15,
     textAlign: 'center',
   },
@@ -104,7 +104,7 @@ const styles = StyleSheet.create({
       },
     }),
     fontWeight: '600',
-    color: '#4B3F3A',
+    color: '#333',
   },
   timeText: {
     ...Platform.select({
@@ -116,7 +116,7 @@ const styles = StyleSheet.create({
       },
     }),
     fontWeight: '400',
-    color: '#6A5048',
+    color: '#6B7280',
   },
 });
 

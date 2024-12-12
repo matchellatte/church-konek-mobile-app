@@ -14,6 +14,7 @@ import TopNavbar from '../../components/top-navbar';
 import CalendarDatePicker from '../../components/calendar-date-picker';
 import FormInputField from '../../components/form-input-field';
 import SubmitButton from '../../components/SubmitButton';
+import { useRouter } from 'expo-router';
 
 const FuneralMassForm: React.FC = () => {
   const [deceasedName, setDeceasedName] = useState('');
@@ -21,6 +22,7 @@ const FuneralMassForm: React.FC = () => {
   const [contactNumber, setContactNumber] = useState('');
   const [selectedDate, setSelectedDate] = useState('');
   const [eventDates, setEventDates] = useState<string[]>([]);
+  const router = useRouter();
 
   useEffect(() => {
     fetchEventDates();
@@ -100,6 +102,8 @@ const FuneralMassForm: React.FC = () => {
         Alert.alert('Error', 'Failed to book funeral mass appointment. Please try again.');
       } else {
         Alert.alert('Success', 'Funeral mass appointment booked successfully.');
+
+        router.push(`/(tabs)/appointment`);
       }
     } catch (error) {
       Alert.alert('Error', 'An unexpected error occurred. Please try again.');

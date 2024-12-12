@@ -14,6 +14,7 @@ import SubmitButton from '../../components/SubmitButton';
 import TopNavbar from '../../components/top-navbar';
 import CalendarDatePicker from '../../components/calendar-date-picker';
 import FormInputField from '../../components/form-input-field';
+import { useRouter } from 'expo-router';
 
 const FirstCommunionForm: React.FC = () => {
   const [childName, setChildName] = useState('');
@@ -22,6 +23,7 @@ const FirstCommunionForm: React.FC = () => {
   const [contactNumber, setContactNumber] = useState('');
   const [selectedDate, setSelectedDate] = useState('');
   const [eventDates, setEventDates] = useState<string[]>([]);
+  const router = useRouter();
 
   useEffect(() => {
     fetchEventDates();
@@ -101,6 +103,8 @@ const FirstCommunionForm: React.FC = () => {
         Alert.alert('Error', 'Failed to book First Communion appointment. Please try again.');
       } else {
         Alert.alert('Success', 'First Communion appointment booked successfully.');
+
+        router.push(`/(tabs)/appointment`);
       }
     } catch (error) {
       Alert.alert('Error', 'An unexpected error occurred. Please try again.');

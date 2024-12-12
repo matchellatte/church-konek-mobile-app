@@ -14,6 +14,7 @@ import TopNavbar from '../../components/top-navbar';
 import CalendarDatePicker from '../../components/calendar-date-picker';
 import FormInputField from '../../components/form-input-field';
 import SubmitButton from '../../components/SubmitButton';
+import { useRouter } from 'expo-router';
 
 const BaptismForm: React.FC = () => {
   const [childName, setChildName] = useState('');
@@ -21,6 +22,7 @@ const BaptismForm: React.FC = () => {
   const [contactNumber, setContactNumber] = useState('');
   const [selectedDate, setSelectedDate] = useState('');
   const [eventDates, setEventDates] = useState<string[]>([]);
+  const router = useRouter();
 
   useEffect(() => {
     fetchEventDates();
@@ -99,6 +101,8 @@ const BaptismForm: React.FC = () => {
         Alert.alert('Error', 'Failed to book baptism appointment. Please try again.');
       } else {
         Alert.alert('Success', 'Baptism appointment booked successfully.');
+        
+        router.push(`/(tabs)/appointment`);
       }
     } catch (error) {
       Alert.alert('Error', 'An unexpected error occurred. Please try again.');

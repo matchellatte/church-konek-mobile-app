@@ -14,6 +14,7 @@ import SubmitButton from '../../components/SubmitButton';
 import TopNavbar from '../../components/top-navbar';
 import CalendarDatePicker from '../../components/calendar-date-picker';
 import FormInputField from '../../components/form-input-field';
+import { useRouter } from 'expo-router';
 
 const WeddingForm: React.FC = () => {
   const [brideName, setBrideName] = useState('');
@@ -21,6 +22,7 @@ const WeddingForm: React.FC = () => {
   const [contactNumber, setContactNumber] = useState('');
   const [selectedDate, setSelectedDate] = useState('');
   const [eventDates, setEventDates] = useState<string[]>([]);
+  const router = useRouter();
 
   useEffect(() => {
     fetchEventDates();
@@ -99,6 +101,9 @@ const WeddingForm: React.FC = () => {
         Alert.alert('Error', 'Failed to book wedding appointment. Please try again.');
       } else {
         Alert.alert('Success', 'Wedding appointment booked successfully.');
+
+        // Navigate to the appointments page
+        router.push(`/(tabs)/appointment`);
       }
     } catch (error) {
       Alert.alert('Error', 'An unexpected error occurred. Please try again.');

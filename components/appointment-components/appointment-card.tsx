@@ -15,7 +15,7 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({ type, date, status, o
       <Ionicons
         name="calendar-outline"
         size={24}
-        color="#A57A5A"
+        color="#6B7280"
         style={styles.icon}
       />
       <View style={styles.info}>
@@ -47,7 +47,7 @@ const styles = StyleSheet.create({
   },
   type: {
     fontSize: 16,
-    color: '#5A4A3A',
+    color: '#333',
     fontWeight: '600',
     marginBottom: 2,
   },

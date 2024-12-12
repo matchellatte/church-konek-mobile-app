@@ -56,7 +56,7 @@ const styles = StyleSheet.create({
             fontSize: 13,
         },
     }),
-    color: '#4B3F3A',
+    color: '#6B7280',
   },
   userName: {
     ...Platform.select({
@@ -68,7 +68,7 @@ const styles = StyleSheet.create({
       },
   }),
     fontWeight: 'bold',
-    color: '#4B3F3A',
+    color: '#333',
   },
   notificationIcon: {
     position: 'relative',

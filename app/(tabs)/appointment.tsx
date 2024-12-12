@@ -170,7 +170,7 @@ const styles = StyleSheet.create({
       },
   }),
     fontWeight: '700',
-    color: '#4B3F3A',
+    color: '#333',
   },
   description: {
     ...Platform.select({
@@ -181,7 +181,7 @@ const styles = StyleSheet.create({
           fontSize: 12,
       },
   }),
-    color: '#857F72',
+    color: '#6B7280',
     marginTop: 8,
   },
   servicesGrid: {
@@ -231,7 +231,7 @@ const styles = StyleSheet.create({
   },
   seeAllText: {
     fontSize: 14,
-    color: '#8C6A5E',
+    color: '#fff',
     fontWeight: '600',
   },
   noAppointmentsText: {

@@ -66,7 +66,7 @@ const ChurchCalendar = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <Text style={styles.headerText}>Church Calendar</Text>
+      <Text style={styles.headerText}>Church Events Calendar</Text>
       <Text style={styles.headerDescription}>
         Discover the schedule of events in our church.
       </Text>

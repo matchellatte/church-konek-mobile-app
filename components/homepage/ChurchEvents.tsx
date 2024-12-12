@@ -17,7 +17,7 @@ const ChurchEvents: React.FC<ChurchEventsProps> = ({ events, onViewAll }) => (
     <View style={styles.headerRow}>
       <Text style={styles.sectionTitle}>Church Events</Text>
       <TouchableOpacity onPress={onViewAll}>
-        <Text style={styles.viewAllText}>View All</Text>
+        <Text style={styles.viewAllText}>See All</Text>
       </TouchableOpacity>
     </View>
     <View style={styles.gridContainer}>
@@ -75,18 +75,18 @@ const styles = StyleSheet.create({
       },
     }),
     fontWeight: '700',
-    color: '#4B3F3A',
+    color: '#333',
   },
   viewAllText: {
     ...Platform.select({
       ios: {
-        fontSize: 16,
+        fontSize: 15,
       },
       android: {
         fontSize: 13,
       },
     }),
-    color: '#8C6A5E',
+    color: '#333',
     fontWeight: '600',
   },
   gridContainer: {
@@ -133,14 +133,14 @@ const styles = StyleSheet.create({
   eventTitle: {
     fontSize: Platform.OS === 'ios' ? 14 : 11,
     fontWeight: '700',
-    color: '#4B3F3A',
+    color: '#333',
     textAlign: 'center',
     marginBottom: Platform.OS === 'ios' ? 5 : 3,
   },
   eventTime: {
     fontSize: Platform.OS === 'ios' ? 12 : 10,
     fontWeight: '500',
-    color: '#6A5048',
+    color: '#333',
   },
 });
 

@@ -36,7 +36,7 @@ const styles = StyleSheet.create({
         },
     }),
     fontWeight: '700',
-    color: '#4B3F3A',
+    color: '#333',
   },
   seeAll: {
     ...Platform.select({
@@ -47,7 +47,7 @@ const styles = StyleSheet.create({
             fontSize: 11,
         },
     }),
-    color: '#8C6A5E',
+    color: '#333',
     fontWeight: '600',
   },
 });

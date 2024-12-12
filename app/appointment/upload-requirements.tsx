@@ -145,7 +145,7 @@ const UploadRequirements: React.FC = () => {
         kumpil: 'kumpil_documents',
         wedding: 'wedding_documents',
         baptism: 'baptism_documents',
-        funeral_mass: 'funeral_mass_documents',
+        funeral_mass: 'funeral_documents',
       };
   
       const tableName = tableMap[appointmentType];
