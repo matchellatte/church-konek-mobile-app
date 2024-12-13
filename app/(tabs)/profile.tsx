@@ -8,7 +8,6 @@ import {
   ActivityIndicator,
   Alert,
   Platform,
-  View,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -87,6 +86,7 @@ const Profile: React.FC = () => {
         <Text style={styles.email}>{userInfo.email}</Text>
         <ProfileSection title="Account">
           <ProfileRow label="Edit Profile" onPress={() => router.push('/profile/edit-profile')} />
+          <ProfileRow label="Prayer Intention" onPress={() => router.push('/profile/prayer-intention')} />
           <ProfileRow label="Generate Certificate" onPress={() => router.push('/profile/manage-certificate')} />
           <ProfileRow label="Change Password" onPress={() => router.push('/profile/change-password')} />
         </ProfileSection>
