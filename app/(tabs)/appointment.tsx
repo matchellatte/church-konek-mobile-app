@@ -15,7 +15,7 @@ const services = [
   { label: 'First Communion', icon: require('../../assets/icons/first_communion_icon.png'), screen: '/appointment/first-communion' },
   { label: 'Special Mass', icon: require('../../assets/icons/special_mass_icon.png'), screen: '/appointment/special-mass' },
   { label: 'Prayer Intention', icon: require('../../assets/icons/prayer_intention_icon.png'), screen: '/appointment/prayer-intention' },
-  { label: 'Church Donation', icon: require('../../assets/icons/donation_icon.png'), screen: '/appointment/donation' },
+  { label: 'Church Donation', icon: require('../../assets/icons/donation_icon.png'), screen: '/appointment/church-donation' },
 ];
 
 
