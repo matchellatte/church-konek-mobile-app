@@ -13,11 +13,10 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { supabase } from '@/backend/lib/supabase';
 import AppointmentTopNavbar from '../../components/appointment-details/details-navbar';
 import ProgressBar from '../../components/appointment-details/progress-bar';
-import { uploadFiles } from '@/backend/lib/tus'; // Import the TUS uploader
 
 const UploadRequirements: React.FC = () => {
   const { appointmentId: rawAppointmentId } = useLocalSearchParams();
-  const appointmentId = Array.isArray(rawAppointmentId) ? rawAppointmentId[0] : rawAppointmentId; // Ensure it's a string
+  const appointmentId = Array.isArray(rawAppointmentId) ? rawAppointmentId[0] : rawAppointmentId;
 
   const [requirements, setRequirements] = useState<string[]>([]);
   const [uploadedFiles, setUploadedFiles] = useState<Record<string, string>>({});
@@ -26,7 +25,6 @@ const UploadRequirements: React.FC = () => {
 
   useEffect(() => {
     if (appointmentId) {
-      console.log('appointmentId:', appointmentId); // Debugging
       fetchRequirements();
     } else {
       Alert.alert('Error', 'Invalid appointment ID.');
@@ -35,7 +33,6 @@ const UploadRequirements: React.FC = () => {
 
   const fetchRequirements = async () => {
     setLoading(true);
-
     try {
       const { data, error } = await supabase
         .from('appointments')
@@ -45,15 +42,14 @@ const UploadRequirements: React.FC = () => {
 
       if (error || !data) {
         Alert.alert('Error', 'Failed to fetch appointment type.');
-        console.error('Error fetching appointment type:', error);
+        setLoading(false);
         return;
       }
 
-      const type = data.services?.name?.toLowerCase();
-      console.log('Fetched type:', type);
+      const type = data.services?.name?.toLowerCase().replace(/\s+/g, '_');
       setAppointmentType(type);
 
-      const requirementsList: Record<string, string[]> = {
+      const requirementsList = {
         kumpil: [
           'Student Baptismal Certificate',
           'Student Birth Certificate',
@@ -69,11 +65,12 @@ const UploadRequirements: React.FC = () => {
           'Groom Confirmation Certificate',
         ],
         baptism: ['Child Birth Certificate', 'Parent Birth Certificates'],
+        funeral_mass: ['Baptismal Certificate', 'Death Certificate'],
       };
 
       setRequirements(requirementsList[type] || []);
     } catch (error) {
-      console.error('Error fetching requirements:', error);
+      Alert.alert('Error', 'An unexpected error occurred.');
     } finally {
       setLoading(false);
     }
@@ -81,58 +78,66 @@ const UploadRequirements: React.FC = () => {
 
   const handleUpload = async (requirement: string) => {
     try {
+      if (uploadedFiles[requirement]) {
+        const userConfirmed = await new Promise<boolean>((resolve) =>
+          Alert.alert(
+            'Replace File',
+            `A file for "${requirement}" has already been uploaded. Do you want to replace it?`,
+            [
+              { text: 'Cancel', onPress: () => resolve(false), style: 'cancel' },
+              { text: 'Replace', onPress: () => resolve(true) },
+            ],
+            { cancelable: true }
+          )
+        );
+
+        if (!userConfirmed) {
+          return;
+        }
+      }
+
       const pickerResult = await DocumentPicker.getDocumentAsync({
         copyToCacheDirectory: true,
       });
-  
+
       if (pickerResult.type === 'cancel') {
         return;
       }
-  
-      console.log('Starting upload for requirement:', requirement);
-      console.log('Selected file:', pickerResult);
-  
+
       const file = pickerResult.assets[0];
       const fileName = `${requirement.replace(/\s+/g, '_')}_${Date.now()}_${file.name}`;
-  
-      // Upload the file to Supabase storage
+
       const { data, error } = await supabase.storage
-        .from('requirements')
+        .from('kumpil')  // Replaced 'requirements' with 'kumpil'
         .upload(fileName, file.uri, {
           cacheControl: '3600',
           upsert: true,
         });
-  
+
       if (error) {
         throw error;
       }
-  
-      // Generate the public URL for the uploaded file
+
       const { data: publicURLData } = supabase.storage
-        .from('requirements')
+        .from('kumpil')  // Replaced 'requirements' with 'kumpil'
         .getPublicUrl(fileName);
-  
+
       const fileURL = publicURLData?.publicUrl;
-  
+
       if (!fileURL) {
         throw new Error('Failed to generate the public URL for the file.');
       }
-  
-      // Save the file URL to the uploadedFiles state
+
       setUploadedFiles((prev) => ({
         ...prev,
         [requirement]: fileURL,
       }));
-  
+
       Alert.alert('Success', `${requirement} uploaded successfully!`);
     } catch (error) {
-      console.error('Error uploading file:', error);
       Alert.alert('Error', `Failed to upload ${requirement}`);
     }
   };
-  
-  
-
 
   const handleSubmit = async () => {
     try {
@@ -140,86 +145,73 @@ const UploadRequirements: React.FC = () => {
         Alert.alert('Error', 'Appointment type is missing.');
         return;
       }
-  
+
       const tableMap: Record<string, string> = {
         kumpil: 'kumpil_documents',
         wedding: 'wedding_documents',
         baptism: 'baptism_documents',
         funeral_mass: 'funeral_documents',
       };
-  
+
       const tableName = tableMap[appointmentType];
       if (!tableName) {
         Alert.alert('Error', 'Invalid appointment type for submission.');
         return;
       }
-  
-      // Check for duplicate appointment_id
+
       const { data: existingData, error: fetchError } = await supabase
         .from(tableName)
         .select('appointment_id')
         .eq('appointment_id', appointmentId);
-  
+
       if (fetchError) {
-        console.error('Error checking for duplicates:', fetchError);
         Alert.alert('Error', 'Failed to check existing submissions.');
         return;
       }
-  
+
       if (existingData && existingData.length > 0) {
         Alert.alert('Error', 'Requirements for this appointment have already been submitted.');
         return;
       }
-  
-      // Prepare data with public URLs
+
       const data = {
         appointment_id: appointmentId,
         ...Object.keys(uploadedFiles).reduce((acc, requirement) => {
           const columnKey = requirement
             .toLowerCase()
             .replace(/\s+/g, '_')
-            .replace(/[^a-z0-9_]/g, ''); // Match column names
+            .replace(/[^a-z0-9_]/g, '');
           acc[columnKey] = uploadedFiles[requirement] || null;
           return acc;
         }, {}),
       };
-  
+
       const { error } = await supabase.from(tableName).insert(data);
-  
+
       if (error) {
         throw error;
       }
-  
-      // Update the appointment status
+
       const { error: updateError } = await supabase
         .from('appointments')
         .update({ status: 'pending for approval' })
         .eq('appointment_id', appointmentId);
-  
+
       if (updateError) {
-        console.error('Error updating appointment status:', updateError);
         Alert.alert('Error', 'Failed to update appointment status.');
         return;
       }
-  
+
       Alert.alert('Success', 'All documents submitted successfully!');
-      // Navigate back to the appointment details page
       navigateToAppointmentDetails();
     } catch (error) {
-      console.error('Error during submission:', error);
       Alert.alert('Error', 'Failed to submit documents.');
     }
   };
-  
-  // Helper function to navigate to appointment details
+
   const navigateToAppointmentDetails = () => {
-    // Use router.push to navigate to appointment-details page
     router.push(`/appointment/appointment-details?appointmentId=${appointmentId}`);
   };
-  
-  
-  
-  
 
   if (loading) {
     return (
@@ -245,10 +237,9 @@ const UploadRequirements: React.FC = () => {
             <TouchableOpacity
               style={styles.uploadButton}
               onPress={() => handleUpload(requirement)}
-              disabled={!!uploadedFiles[requirement]}
             >
               <Text style={styles.uploadButtonText}>
-                {uploadedFiles[requirement] ? 'Uploaded' : 'Upload'}
+                {uploadedFiles[requirement] ? 'Replace' : 'Upload'}
               </Text>
             </TouchableOpacity>
           </View>
