@@ -11,6 +11,7 @@ import {
 import * as DocumentPicker from 'expo-document-picker';
 import { router, useLocalSearchParams } from 'expo-router';
 import { supabase } from '@/backend/lib/supabase';
+import * as FileSystem from 'expo-file-system'; // Import FileSystem for file handling
 import AppointmentTopNavbar from '../../components/appointment-details/details-navbar';
 import ProgressBar from '../../components/appointment-details/progress-bar';
 
@@ -105,11 +106,19 @@ const UploadRequirements: React.FC = () => {
       }
 
       const file = pickerResult.assets[0];
+      
+      // Check if the file exists and is not empty
+      const fileUri = file.uri;
+      const fileInfo = await FileSystem.getInfoAsync(fileUri);
+      if (fileInfo.size === 0) {
+        throw new Error('The selected file is empty.');
+      }
+
       const fileName = `${requirement.replace(/\s+/g, '_')}_${Date.now()}_${file.name}`;
 
       const { data, error } = await supabase.storage
-        .from('kumpil')  // Replaced 'requirements' with 'kumpil'
-        .upload(fileName, file.uri, {
+        .from('try')  // Replaced 'requirements' with 'kumpil'
+        .upload(fileName, fileUri, {
           cacheControl: '3600',
           upsert: true,
         });
@@ -119,7 +128,7 @@ const UploadRequirements: React.FC = () => {
       }
 
       const { data: publicURLData } = supabase.storage
-        .from('kumpil')  // Replaced 'requirements' with 'kumpil'
+        .from('try')  // Replaced 'requirements' with 'kumpil'
         .getPublicUrl(fileName);
 
       const fileURL = publicURLData?.publicUrl;
@@ -183,7 +192,7 @@ const UploadRequirements: React.FC = () => {
             .replace(/[^a-z0-9_]/g, '');
           acc[columnKey] = uploadedFiles[requirement] || null;
           return acc;
-        }, {}),
+        }, {}), 
       };
 
       const { error } = await supabase.from(tableName).insert(data);
