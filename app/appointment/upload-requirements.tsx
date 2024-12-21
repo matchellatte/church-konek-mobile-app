@@ -9,6 +9,7 @@ import {
   ScrollView,
 } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system';
 import { router, useLocalSearchParams } from 'expo-router';
 import { supabase } from '@/backend/lib/supabase';
 import AppointmentTopNavbar from '../../components/appointment-details/details-navbar';
@@ -90,54 +91,95 @@ const UploadRequirements: React.FC = () => {
             { cancelable: true }
           )
         );
-
+  
         if (!userConfirmed) {
           return;
         }
       }
-
+  
       const pickerResult = await DocumentPicker.getDocumentAsync({
         copyToCacheDirectory: true,
+        type: '*/*', // Allow all types for document picker
       });
-
+  
       if (pickerResult.type === 'cancel') {
         return;
       }
-
+  
       const file = pickerResult.assets[0];
+  
+      // Check for file type (only images and PDF allowed)
+      const fileExtension = file.name.split('.').pop()?.toLowerCase();
+      if (!['jpg', 'jpeg', 'png', 'pdf'].includes(fileExtension || '')) {
+        Alert.alert('Invalid File Type', 'Only images (JPG, JPEG, PNG) and PDF files are allowed.');
+        return;
+      }
+  
       const fileName = `${requirement.replace(/\s+/g, '_')}_${Date.now()}_${file.name}`;
-
+  
+      // Check if the file URI is valid
+      if (!file.uri || file.uri.length === 0) {
+        Alert.alert('Error', 'Invalid file. Please try again.');
+        return;
+      }
+  
+      // Read the file content as a binary buffer
+      const fileBuffer = await FileSystem.readAsStringAsync(file.uri, {
+        encoding: FileSystem.EncodingType.Base64, // Base64 encoding for binary files
+      });
+      const buffer = new Uint8Array(atob(fileBuffer).split("").map(char => char.charCodeAt(0)));
+  
+      if (!buffer) {
+        Alert.alert('Error', 'Failed to read the file content.');
+        return;
+      }
+  
+      // Determine the MIME type based on the file extension
+      let contentType = '';
+      if (['jpg', 'jpeg', 'png'].includes(fileExtension)) {
+        contentType = `image/${fileExtension}`;
+      } else if (fileExtension === 'pdf') {
+        contentType = 'application/pdf';
+      }
+  
+      // Now upload the file content (in binary format) to Supabase
       const { data, error } = await supabase.storage
-        .from('kumpil')  // Replaced 'requirements' with 'kumpil'
-        .upload(fileName, file.uri, {
+        .from('try2')  // Make sure this is your correct bucket name
+        .upload(fileName, buffer, {
           cacheControl: '3600',
           upsert: true,
+          contentType: contentType,  // Set the correct MIME type
         });
-
+  
       if (error) {
         throw error;
       }
-
+  
+      // Get the public URL of the uploaded file
       const { data: publicURLData } = supabase.storage
-        .from('kumpil')  // Replaced 'requirements' with 'kumpil'
+        .from('try2')  // Ensure this is your correct bucket name
         .getPublicUrl(fileName);
-
+  
       const fileURL = publicURLData?.publicUrl;
-
+  
       if (!fileURL) {
         throw new Error('Failed to generate the public URL for the file.');
       }
-
+  
+      // Update the state with the uploaded file's URL
       setUploadedFiles((prev) => ({
         ...prev,
         [requirement]: fileURL,
       }));
-
+  
       Alert.alert('Success', `${requirement} uploaded successfully!`);
     } catch (error) {
-      Alert.alert('Error', `Failed to upload ${requirement}`);
+      console.error(error);
+      Alert.alert('Error', `Failed to upload ${requirement}.`);
     }
   };
+  
+  
 
   const handleSubmit = async () => {
     try {
